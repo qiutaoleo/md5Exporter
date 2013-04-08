@@ -1,0 +1,1 @@
+3ds max 2012 export md5 file format,*.md5mesh and *.md5anim.
