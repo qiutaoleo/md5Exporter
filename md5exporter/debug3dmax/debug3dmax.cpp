@@ -178,6 +178,7 @@ int	debug3dmax::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, BOOL s
 	}
 	TCHAR pluginPath[MAX_PATH+1];
 	int length=fread(pluginPath,1,sizeof(pluginPath),cfg);
+	fclose(cfg);
 	if (length==0)
 	{
 		MessageBox( GetActiveWindow(), _T("error: path in 'debugplugin.txt' is empty"),_T( "debugplugin.txt"), 0 );
