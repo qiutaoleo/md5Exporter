@@ -5,6 +5,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "md5meshExporter", "md5meshE
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "md5animExporter", "md5animExporter\md5animExporter.vcxproj", "{EE59C768-2ED8-489E-9E23-0C369DD4B735}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "debug3dmax", "debug3dmax\debug3dmax.vcxproj", "{8C0D339D-1483-41AD-9D76-4BA800D28CEF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -69,6 +71,30 @@ Global
 		{EE59C768-2ED8-489E-9E23-0C369DD4B735}.ReleaseUnicode|Win32.Build.0 = ReleaseUnicode|Win32
 		{EE59C768-2ED8-489E-9E23-0C369DD4B735}.ReleaseUnicode|x64.ActiveCfg = ReleaseUnicode|x64
 		{EE59C768-2ED8-489E-9E23-0C369DD4B735}.ReleaseUnicode|x64.Build.0 = ReleaseUnicode|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Debug|Win32.Build.0 = Debug|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Debug|x64.ActiveCfg = Debug|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Debug|x64.Build.0 = Debug|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.DebugUnicode|Win32.ActiveCfg = DebugUnicode|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.DebugUnicode|Win32.Build.0 = DebugUnicode|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.DebugUnicode|x64.ActiveCfg = DebugUnicode|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.DebugUnicode|x64.Build.0 = DebugUnicode|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Hybrid|Win32.ActiveCfg = Hybrid|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Hybrid|Win32.Build.0 = Hybrid|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Hybrid|x64.ActiveCfg = Hybrid|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Hybrid|x64.Build.0 = Hybrid|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.HybridUnicode|Win32.ActiveCfg = HybridUnicode|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.HybridUnicode|Win32.Build.0 = HybridUnicode|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.HybridUnicode|x64.ActiveCfg = HybridUnicode|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.HybridUnicode|x64.Build.0 = HybridUnicode|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Release|Win32.ActiveCfg = Release|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Release|Win32.Build.0 = Release|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Release|x64.ActiveCfg = Release|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.Release|x64.Build.0 = Release|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.ReleaseUnicode|Win32.ActiveCfg = ReleaseUnicode|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.ReleaseUnicode|Win32.Build.0 = ReleaseUnicode|Win32
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.ReleaseUnicode|x64.ActiveCfg = ReleaseUnicode|x64
+		{8C0D339D-1483-41AD-9D76-4BA800D28CEF}.ReleaseUnicode|x64.Build.0 = ReleaseUnicode|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

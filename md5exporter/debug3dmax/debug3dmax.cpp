@@ -12,11 +12,11 @@
 // AUTHOR: 
 //***************************************************************************/
 
-#include "md5animExporter.h"
+#include "debug3dmax.h"
 
-#define md5animExporter_CLASS_ID	Class_ID(0x7833d653, 0xc53b2ccf)
+#define debug3dmax_CLASS_ID	Class_ID(0x668a6bf5, 0xaf1d3a3b)
 
-class md5animExporter : public SceneExport {
+class debug3dmax : public SceneExport {
 	public:
 		
 		static HWND hParams;
@@ -36,45 +36,45 @@ class md5animExporter : public SceneExport {
 		int				DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, BOOL suppressPrompts=FALSE, DWORD options=0);
 
 		//Constructor/Destructor
-		md5animExporter();
-		~md5animExporter();		
+		debug3dmax();
+		~debug3dmax();		
 
 };
 
 
 
-class md5animExporterClassDesc : public ClassDesc2 
+class debug3dmaxClassDesc : public ClassDesc2 
 {
 public:
 	virtual int IsPublic() 							{ return TRUE; }
-	virtual void* Create(BOOL /*loading = FALSE*/) 		{ return new md5animExporter(); }
+	virtual void* Create(BOOL /*loading = FALSE*/) 		{ return new debug3dmax(); }
 	virtual const TCHAR *	ClassName() 			{ return GetString(IDS_CLASS_NAME); }
 	virtual SClass_ID SuperClassID() 				{ return SCENE_EXPORT_CLASS_ID; }
-	virtual Class_ID ClassID() 						{ return md5animExporter_CLASS_ID; }
+	virtual Class_ID ClassID() 						{ return debug3dmax_CLASS_ID; }
 	virtual const TCHAR* Category() 				{ return GetString(IDS_CATEGORY); }
 
-	virtual const TCHAR* InternalName() 			{ return _T("md5animExporter"); }	// returns fixed parsable name (scripter-visible name)
+	virtual const TCHAR* InternalName() 			{ return _T("debug3dmax"); }	// returns fixed parsable name (scripter-visible name)
 	virtual HINSTANCE HInstance() 					{ return hInstance; }					// returns owning module handle
 	
 
 };
 
 
-ClassDesc2* Getmd5animExporterDesc() { 
-	static md5animExporterClassDesc md5animExporterDesc;
-	return &md5animExporterDesc; 
+ClassDesc2* Getdebug3dmaxDesc() { 
+	static debug3dmaxClassDesc debug3dmaxDesc;
+	return &debug3dmaxDesc; 
 }
 
 
 
 
 
-INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam) {
-	static md5animExporter *imp = NULL;
+INT_PTR CALLBACK debug3dmaxOptionsDlgProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam) {
+	static debug3dmax *imp = NULL;
 
 	switch(message) {
 		case WM_INITDIALOG:
-			imp = (md5animExporter *)lParam;
+			imp = (debug3dmax *)lParam;
 			CenterWindow(hWnd,GetParent(hWnd));
 			return TRUE;
 
@@ -86,95 +86,138 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 }
 
 
-//--- md5animExporter -------------------------------------------------------
-md5animExporter::md5animExporter()
+//--- debug3dmax -------------------------------------------------------
+debug3dmax::debug3dmax()
 {
 
 }
 
-md5animExporter::~md5animExporter() 
+debug3dmax::~debug3dmax() 
 {
 
 }
 
-int md5animExporter::ExtCount()
+int debug3dmax::ExtCount()
 {
 	#pragma message(TODO("Returns the number of file name extensions supported by the plug-in."))
 	return 1;
 }
 
-const TCHAR *md5animExporter::Ext(int n)
+const TCHAR *debug3dmax::Ext(int n)
 {		
 	#pragma message(TODO("Return the 'i-th' file name extension (i.e. \"3DS\")."))
-	return _T("md5anim");
+	return _T("debug");
 }
 
-const TCHAR *md5animExporter::LongDesc()
+const TCHAR *debug3dmax::LongDesc()
 {
 	#pragma message(TODO("Return long ASCII description (i.e. \"Targa 2.0 Image File\")"))
-	return _T("MD5 Anim file");
+	return _T("Debug exporter plugin");
 }
 	
-const TCHAR *md5animExporter::ShortDesc() 
+const TCHAR *debug3dmax::ShortDesc() 
 {			
 	#pragma message(TODO("Return short ASCII description (i.e. \"Targa\")"))
-	return _T("MD5 Anim");
+	return _T("Debug exporter");
 }
 
-const TCHAR *md5animExporter::AuthorName()
+const TCHAR *debug3dmax::AuthorName()
 {			
 	#pragma message(TODO("Return ASCII Author name"))
 	return _T("HoneyCat");
 }
 
-const TCHAR *md5animExporter::CopyrightMessage() 
+const TCHAR *debug3dmax::CopyrightMessage() 
 {	
 	#pragma message(TODO("Return ASCII Copyright message"))
 	return _T("Copyright (C) 2013 HoneyCat. All rights reserved.");
 }
 
-const TCHAR *md5animExporter::OtherMessage1() 
+const TCHAR *debug3dmax::OtherMessage1() 
 {		
 	//TODO: Return Other message #1 if any
 	return _T("");
 }
 
-const TCHAR *md5animExporter::OtherMessage2() 
+const TCHAR *debug3dmax::OtherMessage2() 
 {		
 	//TODO: Return other message #2 in any
 	return _T("");
 }
 
-unsigned int md5animExporter::Version()
+unsigned int debug3dmax::Version()
 {				
 	#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
 	return 100;
 }
 
-void md5animExporter::ShowAbout(HWND hWnd)
+void debug3dmax::ShowAbout(HWND hWnd)
 {			
 	// Optional
 }
 
-BOOL md5animExporter::SupportsOptions(int ext, DWORD options)
+BOOL debug3dmax::SupportsOptions(int ext, DWORD options)
 {
 	#pragma message(TODO("Decide which options to support.  Simply return true for each option supported by each Extension the exporter supports."))
 	return TRUE;
 }
 
+// This function returns the number of plug-in classes this DLL
+typedef int (*LibNumberClassesFun)();
 
-int	md5animExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, BOOL suppressPrompts, DWORD options)
+// This function returns the number of plug-in classes this DLL
+ typedef ClassDesc* (*LibClassDescFun)(int i);
+
+int	debug3dmax::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, BOOL suppressPrompts, DWORD options)
 {
-	#pragma message(TODO("Implement the actual file Export here and"))
+	FILE* cfg=fopen("debugplugin.txt","r");
+	if (cfg==NULL)
+	{
+		MessageBox( GetActiveWindow(), _T("error: can't find 'debugplugin.txt'"),_T("debugplugin.txt") , 0 );
+		return FALSE;
+	}
+	TCHAR pluginPath[MAX_PATH+1];
+	int length=fread(pluginPath,1,sizeof(pluginPath),cfg);
+	if (length==0)
+	{
+		MessageBox( GetActiveWindow(), _T("error: path in 'debugplugin.txt' is empty"),_T( "debugplugin.txt"), 0 );
+		return FALSE;
+	}
+	pluginPath[length]=0;
 
-	if(!suppressPrompts)
-		DialogBoxParam(hInstance, 
-				MAKEINTRESOURCE(IDD_PANEL), 
-				GetActiveWindow(), 
-				md5animExporterOptionsDlgProc, (LPARAM)this);
+	HMODULE hModule;
+	hModule = ::LoadLibraryEx( pluginPath, NULL, 0 );
+	if( hModule == NULL )
+	{
+		MessageBox( GetActiveWindow(), pluginPath, _T("load plugin failed!"), 0 );
+		return FALSE;
+	}
 
-	#pragma message(TODO("return TRUE If the file is exported properly"))
-	return FALSE;
+	LibNumberClassesFun LibNumFun=NULL;
+	LibNumFun=(LibNumberClassesFun)GetProcAddress( hModule, _T("LibNumberClasses") );
+	LibClassDescFun LibClassFun=NULL;
+	LibClassFun=(LibClassDescFun)GetProcAddress( hModule, _T("LibClassDesc") );
+
+	if( LibNumFun == NULL || LibClassFun == NULL)
+	{
+		MessageBox( GetActiveWindow(), pluginPath, _T("error: can't find export function"), 0 );
+		return FALSE;
+	}
+	int num=LibNumFun();
+	int nRet =FALSE;
+	for (int n=0;n<num;++n)
+	{
+		ClassDesc* desc=LibClassFun(n);
+		SceneExport* doexport=(SceneExport*)desc->Create();
+		nRet=doexport->DoExport( name, ei, i, suppressPrompts, options );
+		delete doexport;
+		if (nRet==FALSE)
+		{
+			break;
+		}
+	}
+	::FreeLibrary( hModule );
+	return nRet;
 }
 
 
