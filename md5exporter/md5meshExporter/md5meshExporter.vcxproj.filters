@@ -46,9 +46,6 @@
     <ClInclude Include="..\common\MyErrorProc.h">
       <Filter>common</Filter>
     </ClInclude>
-    <ClInclude Include="..\common\Data.h">
-      <Filter>common</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="md5meshExporter.rc">
