@@ -30,7 +30,7 @@ commandline <string:commandline>
 numJoints <int:numJoints>
 numMeshes <int:numMeshes>
 numObjects <int:numObjects>
-numMtls <int:numMtls>
+numMaterials <int:numMaterials>
 
 joints {
 <string:name> <int:parentIndex> ( <vec3:position> ) ( <vec3:orientation> )
@@ -144,7 +144,7 @@ public:
 
 	void	DumpCount();
 
-	void CountNodes( IGameNode * pGameNode ) ;
+	void	CountNodes( IGameNode * pGameNode ) ;
 
 	void	DumpBones();
 
@@ -618,7 +618,7 @@ void md5meshExporter::DumpCount()
 	fprintf(_OutFile,"numJoints %d\r\n",_BoneCount);
 	fprintf(_OutFile,"numMeshes %d\r\n",_MeshCount);
 	fprintf(_OutFile,"numObjects %d\r\n",_ObjCount);
-	fprintf(_OutFile,"numMtls %d\r\n\r\n",_MtlCount);
+	fprintf(_OutFile,"numMaterials %d\r\n\r\n",_MtlCount);
 }
 
 void md5meshExporter::CountNodes( IGameNode * pGameNode )
