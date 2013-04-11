@@ -17,8 +17,10 @@
 #include "../common//MyErrorProc.h"
 #include <IGame/IGame.h>
 #include <IGame/IConversionManager.h>
+#include <IGame/IGameModifier.h>
 #include <conio.h>
 #include <iostream>
+#include <hash_map>
 using namespace std;
 
 /************************************************************************/
@@ -220,16 +222,21 @@ public:
 			IGameMesh * gM = (IGameMesh*)obj;
 			if(gM->InitializeData())
 			{
-				Tab<int> matIDs=gM->GetActiveMatIDs();
-				int matCount=matIDs.Count();
-				for (int m=0;m<matCount;++m)
+				int numMod = obj->GetNumModifiers();
+				if(numMod > 0)
 				{
-					Tab<FaceEx *> faces=gM->GetFacesFromMatID(m);
-					IGameMaterial * mat=gM->GetMaterialFromFace(faces[0]);
-					fprintf(_OutFile,"materials %s \r\n",mat->GetMaterialName());
+					int i=0;
+					for(;i<numMod;i++)
+					{
+						IGameModifier * gMod = obj->GetIGameModifier(i);
+						if (gMod->IsSkin())
+						{
+							fprintf(_OutFile,"node %s\r\n",pGameNode->GetName());
+							DumpSubMesh(gM,(IGameSkin*)gMod);
+							break;;
+						}
+					}
 				}
-				
-				//DumpSubMesh(gM);
 			}
 			else
 			{
@@ -292,8 +299,25 @@ public:
 		}
 	}
 
-	void DumpSubMesh( IGameMesh * gM ) 
+	void DumpSubMesh( IGameMesh * gM ,IGameSkin* gSkin) 
 	{
+		Tab<int> matIDs=gM->GetActiveMatIDs();
+		int matCount=matIDs.Count();
+		for (int m=0;m<matCount;++m)
+		{
+			Tab<FaceEx *> faces=gM->GetFacesFromMatID(m);
+
+			fprintf(_OutFile,"mesh {\r\n");
+			fprintf(_OutFile,"\tmeshindex %d\r\n\r\n",_MeshCount++);
+			fprintf(_OutFile,"\tshader \"%s\"\r\n\r\n",gM->GetMaterialFromFace(faces[0])->GetMaterialName());
+
+			DumpVertex(gM,faces,gSkin);
+			
+			fprintf(_OutFile,"}\r\n\r\n");
+		}
+		
+		return;
+
 		Tab<int> mapNums = gM->GetActiveMapChannelNum();
 		int mapCount = mapNums.Count();
 		for(int i=0;i < mapCount;i++)
@@ -382,6 +406,29 @@ public:
 		}
 		return _T("");
 	}
+
+	void DumpVertex( IGameMesh * gM,Tab<FaceEx *> faces, IGameSkin* gSkin ) 
+	{
+		hash_map<int,int> vertMap;
+		int faceCount=faces.Count();
+		for (int f=0;f<faceCount;++f)
+		{
+			vertMap[faces[f]->vert[0]]=faces[f]->texCoord[0];
+			vertMap[faces[f]->vert[1]]=faces[f]->texCoord[1];
+			vertMap[faces[f]->vert[2]]=faces[f]->texCoord[2];
+		}
+		fprintf(_OutFile,"\tnumverts %d\r\n\r\n",vertMap.size());
+
+		for (hash_map<int,int>::iterator itv=vertMap.begin();
+			itv!=vertMap.end();++itv)
+		{
+			Point2 uv=gM->GetTexVertex(itv->second);
+			fprintf(_OutFile,"\tvert %d ( %f %f ) %d %d\r\n",itv->first,uv.x,1.0f+uv.y,0,gSkin->GetNumberOfBones(itv->first));
+		}
+		
+	}
+
+
 
 
 
