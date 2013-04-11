@@ -65,7 +65,7 @@ public:
 
 	void	DumpBones();
 
-	void DumpJoint( IGameNode * pGameNode,int ParentIndex=-1) 
+	void DumpJoint( IGameNode * pGameNode,int& CurIndex,int ParentIndex=-1) 
 	{
 		IGameObject * obj = pGameNode->GetIGameObject();
 		if (obj->GetIGameType()==IGameObject::IGAME_BONE)
@@ -79,11 +79,12 @@ public:
 		
 		pGameNode->ReleaseIGameObject();
 
+		int index=CurIndex;
 		for(int i=0;i<pGameNode->GetChildCount();i++)
 		{
 			IGameNode * child = pGameNode->GetNodeChild(i);
 
-			DumpJoint(child,ParentIndex+i+1);
+			DumpJoint(child,++CurIndex,index);
 		}
 	}
 
@@ -368,8 +369,9 @@ void md5meshExporter::DumpBones()
 	for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 	{
 		IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
-
-		DumpJoint(pGameNode);
+		
+		int index=0;
+		DumpJoint(pGameNode,index);
 	}
 	fprintf(_OutFile,"}\r\n\r\n");
 }
