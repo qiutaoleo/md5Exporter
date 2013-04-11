@@ -879,6 +879,7 @@
     <None Include="md5meshExporter.def" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\common\Define.h" />
     <ClInclude Include="..\common\MyErrorProc.h" />
     <ClInclude Include="..\common\SimpleFile.h" />
     <ClInclude Include="3dsmaxsdk_preinclude.h" />

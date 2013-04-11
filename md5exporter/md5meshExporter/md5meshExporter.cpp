@@ -14,7 +14,8 @@
 
 #include "md5meshExporter.h"
 #include "../common/SimpleFile.h"
-#include "../common//MyErrorProc.h"
+#include "../common/MyErrorProc.h"
+#include "../common/Define.h"
 #include <IGame/IGame.h>
 #include <IGame/IConversionManager.h>
 #include <IGame/IGameModifier.h>
@@ -103,6 +104,17 @@ struct MaterialInfo
 	MCHAR* Opacity;
 };
 
+struct WeightInfo 
+{
+	WeightInfo()
+		:Value(0.f)
+	{
+
+	}
+	float Value;
+	IGameNode* Bone;
+};
+
 
 
 class md5meshExporter : public SceneExport {
@@ -141,6 +153,7 @@ public:
 	int _ObjCount;
 	int _MtlCount;
 	
+	hash_map<MCHAR*,int> _BoneIndexList;
 	Tab<ObjectInfo*> _ObjInfoList;
 	Tab<MaterialInfo*> _MtlInfoList;
 
@@ -154,24 +167,28 @@ public:
 
 	void DumpJoint( IGameNode * pGameNode,int& CurIndex,int ParentIndex=-1) 
 	{
+		int index=CurIndex;
 		IGameObject * obj = pGameNode->GetIGameObject();
-		if (obj->GetIGameType()==IGameObject::IGAME_BONE)
+		if (obj->GetIGameType()==IGameObject::IGAME_BONE/*||
+			obj->GetIGameType()==IGameObject::IGAME_HELPER*/)
 		{
 			GMatrix mat=obj->GetIGameObjectTM();
 			Point3 pos=mat.Translation();
 			Point3 quat=mat.Rotation();
-			fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n",pGameNode->GetName(),ParentIndex,
+			MCHAR* name=pGameNode->GetName();
+			fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n",name,ParentIndex,
 				pos.x,pos.y,pos.z,quat.x,quat.y,quat.z);
+			++CurIndex;
+			_BoneIndexList[name]=index;
 		}
 		
 		pGameNode->ReleaseIGameObject();
 
-		int index=CurIndex;
 		for(int i=0;i<pGameNode->GetChildCount();i++)
 		{
 			IGameNode * child = pGameNode->GetNodeChild(i);
 
-			DumpJoint(child,++CurIndex,index);
+			DumpJoint(child,CurIndex,index);
 		}
 	}
 
@@ -231,7 +248,7 @@ public:
 						IGameModifier * gMod = obj->GetIGameModifier(i);
 						if (gMod->IsSkin())
 						{
-							fprintf(_OutFile,"node %s\r\n",pGameNode->GetName());
+							fprintf(_OutFile,"//node %s\r\n",pGameNode->GetName());
 							DumpSubMesh(gM,(IGameSkin*)gMod);
 							break;;
 						}
@@ -254,51 +271,6 @@ public:
 		}
 	}
 
-	void DumpSubMesh11( IGameMesh * gM ) 
-	{
-		Tab<int> mapNums = gM->GetActiveMapChannelNum();
-		int mapCount = mapNums.Count();
-		for(int i=0;i < mapCount;i++)
-		{
-			int fCount = gM->GetNumberOfFaces();
-			IGameMaterial* mat=NULL;
-			for(int k=0;k<fCount;k++)
-			{
-				IGameMaterial* curmat=gM->GetMaterialFromFace(k);
-				
-				if (mat!=NULL&&strcmp(mat->GetMaterialName(),curmat->GetMaterialName())!=0)
-				{
-					fprintf(_OutFile,"name \"%s\" %d\r\n\r\n",mat->GetMaterialName(),mat->GetDiffuseData()->GetType());
-
-					int texCount = mat->GetNumberOfTextureMaps();
-					for(int i=0;i<texCount;i++)
-					{
-						IGameTextureMap * tex = mat->GetIGameTextureMap(i);
-						TCHAR * name = tex->GetBitmapFileName();
-						fprintf(_OutFile,"shader \"%s\" %d %s\r\n\r\n",name,tex->GetStdMapSlot(),tex->GetTextureName());
-					}
-				}
-				mat=curmat;
-
-				
-				//DWORD v[3];
-				//if (gM->GetMapFaceIndex(mapNums[i],k,v))
-				//{
-				//	//use data here
-				//}
-			}
-			fprintf(_OutFile,"name \"%s\" %d\r\n\r\n",mat->GetMaterialName(),mat->GetSubMaterialCount());
-
-			int texCount = mat->GetNumberOfTextureMaps();
-			for(int i=0;i<texCount;i++)
-			{
-				IGameTextureMap * tex = mat->GetIGameTextureMap(i);
-				TCHAR * name = tex->GetBitmapFileName();
-				fprintf(_OutFile,"shader \"%s\"\r\n\r\n",name);
-			}
-		}
-	}
-
 	void DumpSubMesh( IGameMesh * gM ,IGameSkin* gSkin) 
 	{
 		Tab<int> matIDs=gM->GetActiveMatIDs();
@@ -314,58 +286,6 @@ public:
 			DumpVertex(gM,faces,gSkin);
 			
 			fprintf(_OutFile,"}\r\n\r\n");
-		}
-		
-		return;
-
-		Tab<int> mapNums = gM->GetActiveMapChannelNum();
-		int mapCount = mapNums.Count();
-		for(int i=0;i < mapCount;i++)
-		{
-			//int vCount = gM->GetNumberOfMapVerts(mapNums[i]);
-			//
-			//for(int j=0;j<vCount;j++)
-			//{
-			//	Point3 v;
-			//	if(gM->GetMapVertex(mapNums[i],j,v))
-			//	{
-			//		//use data here
-			//	}
-			//}
-			int fCount = gM->GetNumberOfFaces();
-			Tab<TSTR> meshMtlNames;
-			for(int k=0;k<fCount;k++)
-			{
-				IGameMaterial* mat=gM->GetMaterialFromFace(k);
-				int nameCount=meshMtlNames.Count();
-				int n=0;
-				TSTR matName=mat->GetMaterialName();
-				for (;n<nameCount;++n)
-				{
-					TSTR curName=meshMtlNames[n];
-					if (matName==curName)
-					{
-						break;
-					}
-				}
-
-				if (n==nameCount)
-				{
-					meshMtlNames.Append(1,&matName);
-					_MeshCount++;
-
-					fprintf(_OutFile,"mesh {\r\n");
-
-					fprintf(_OutFile,"}\r\n\r\n");
-				}
-
-
-				//DWORD v[3];
-				//if (gM->GetMapFaceIndex(mapNums[i],k,v))
-				//{
-				//	//use data here
-				//}
-			}
 		}
 	}
 
@@ -407,7 +327,7 @@ public:
 		return _T("");
 	}
 
-	void DumpVertex( IGameMesh * gM,Tab<FaceEx *> faces, IGameSkin* gSkin ) 
+	void DumpVertex( IGameMesh * gM,Tab<FaceEx *> faces, IGameSkin* gSkin) 
 	{
 		hash_map<int,int> vertMap;
 		int faceCount=faces.Count();
@@ -417,15 +337,100 @@ public:
 			vertMap[faces[f]->vert[1]]=faces[f]->texCoord[1];
 			vertMap[faces[f]->vert[2]]=faces[f]->texCoord[2];
 		}
-		fprintf(_OutFile,"\tnumverts %d\r\n\r\n",vertMap.size());
 
+		fprintf(_OutFile,"\tnumverts %d\r\n",vertMap.size());
+		
+		int weightIndex=0;
+		int vertIndex=0;
 		for (hash_map<int,int>::iterator itv=vertMap.begin();
 			itv!=vertMap.end();++itv)
 		{
 			Point2 uv=gM->GetTexVertex(itv->second);
-			fprintf(_OutFile,"\tvert %d ( %f %f ) %d %d\r\n",itv->first,uv.x,1.0f+uv.y,0,gSkin->GetNumberOfBones(itv->first));
+			int weightCount=gSkin->GetNumberOfBones(itv->first);
+			if (weightCount>VERT_MAX_BONES)
+				weightCount=VERT_MAX_BONES;
+			itv->second=vertIndex;
+			if (uv.x>1.f)
+				uv.x-=1.f;
+			if (uv.y<0.f)
+				uv.y+=1.f;
+			fprintf(_OutFile,"\tvert %d ( %f %f ) %d %d\r\n",vertIndex,
+				uv.x,uv.y,
+				weightIndex,weightCount);
+			weightIndex+=weightCount;
+			vertIndex++;
+		}
+
+		fprintf(_OutFile,"\r\n\tnumtris %d\r\n",faceCount);
+
+		for (int f=0;f<faceCount;++f)
+		{
+			fprintf(_OutFile,"\ttri %d %d %d %d\r\n",f,
+				vertMap[faces[f]->vert[0]],
+				vertMap[faces[f]->vert[1]],
+				vertMap[faces[f]->vert[2]]);
 		}
 		
+		fprintf(_OutFile,"\r\n\tnumweights %d\r\n",weightIndex);
+
+		weightIndex=0;
+		for (hash_map<int,int>::iterator itv=vertMap.begin();
+			itv!=vertMap.end();++itv)
+		{
+			int weightCount=gSkin->GetNumberOfBones(itv->first);
+			if (weightCount>VERT_MAX_BONES)
+				weightCount=VERT_MAX_BONES;
+			
+			WeightInfo weights[VERT_MAX_BONES]={WeightInfo()};
+			int usedWeight=0;
+			
+			int boneCount=gSkin->GetTotalBoneCount();
+			for (int b=0;b<boneCount;++b)
+			{
+				IGameNode* gBone=gSkin->GetIGameBone(b);
+
+				float curWeight=gSkin->GetWeight(itv->first,gSkin->GetBoneIndex(gBone));
+				if (usedWeight==weightCount)
+				{
+					for (int u=0;u<usedWeight;++u)
+					{
+						if (weights[u].Value<curWeight)
+						{
+							weights[u].Value=curWeight;
+							weights[u].Bone=gBone;
+							break;
+						}
+					}
+				}
+				else if (usedWeight<weightCount)
+				{
+					weights[usedWeight].Value=curWeight;
+					weights[usedWeight].Bone=gBone;
+					usedWeight++;
+				}
+			}
+
+			float totalWeight=0;
+			for (int u=0;u<usedWeight;++u)
+			{
+				totalWeight+=weights[u].Value;
+			}
+			Point3 vertPos=gM->GetVertex(itv->first,true);
+			for (int u=0;u<usedWeight;++u)
+			{
+				weights[u].Value/=totalWeight;
+				Point3 weightPos=vertPos*weights[u].Bone->GetIGameObject()->GetIGameObjectTM().Inverse();
+
+				fprintf(_OutFile,"\tweight %d %d %f ( %f %f %f )\r\n",weightIndex,
+					_BoneIndexList[weights[u].Bone->GetName()],
+					weights[u].Value,
+					weightPos.x,
+					weightPos.y,
+					weightPos.z);
+				weightIndex++;
+			}
+		}
+
 	}
 
 
@@ -589,10 +594,10 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 {
 	//#pragma message(TODO("Implement the actual file Export here and"))
 
-	AllocConsole();
-	freopen("CONOUT$","w+t",stdout); 
-	freopen("CONIN$","r+t",stdin);
-	printf("开始导出\n");
+	//AllocConsole();
+	//freopen("CONOUT$","w+t",stdout); 
+	//freopen("CONIN$","r+t",stdin);
+	//printf("开始导出\n");
 	int result=TRUE;
 	if(!suppressPrompts)
 	{
@@ -609,7 +614,7 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 			pIgame=GetIGameInterface();
 
 			IGameConversionManager * cm = GetConversionManager();
-			cm->SetCoordSystem(IGameConversionManager::IGAME_D3D);
+			cm->SetCoordSystem(IGameConversionManager::IGAME_MAX);
 			_TargetExport=(options & SCENE_EXPORT_SELECTED) ? true : false;
 			pIgame->InitialiseIGame();
 			pIgame->SetStaticFrame(0);
@@ -625,8 +630,8 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 		else
 			result=TRUE;
 	}
-	getch();
-	FreeConsole();
+	//getch();
+	//FreeConsole();
 	return result;
 }
 
@@ -672,7 +677,8 @@ void md5meshExporter::DumpCount()
 void md5meshExporter::CountNodes( IGameNode * pGameNode )
 {
 	IGameObject * obj = pGameNode->GetIGameObject();
-	if (obj->GetIGameType()==IGameObject::IGAME_BONE)
+	if (obj->GetIGameType()==IGameObject::IGAME_BONE/*||
+		obj->GetIGameType()==IGameObject::IGAME_HELPER*/)
 	{
 		_BoneCount++;
 	}
@@ -687,7 +693,7 @@ void md5meshExporter::CountNodes( IGameNode * pGameNode )
 
 		CountMesh(obj);
 	}
-	fprintf(_OutFile,"%s %d\n",pGameNode->GetName(),obj->GetIGameType());
+	//fprintf(_OutFile,"%s %d\n",pGameNode->GetName(),obj->GetIGameType());
 	pGameNode->ReleaseIGameObject();
 
 	for(int i=0;i<pGameNode->GetChildCount();i++)
