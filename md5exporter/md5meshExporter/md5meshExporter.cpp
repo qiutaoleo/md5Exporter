@@ -72,6 +72,22 @@ weight <int:weightIndex> <int:jointIndex> <float:weightBias> ( <vec3:weightPosit
 
 #define md5meshExporter_CLASS_ID	Class_ID(0xdd5ae717, 0x35c3d455)
 
+struct ObjectInfo 
+{
+	ObjectInfo()
+		:StartMesh(0),
+		MeshCount(0)
+	{
+
+	}
+
+	MCHAR* Name;
+	int StartMesh;
+	int MeshCount;
+};
+
+
+
 class md5meshExporter : public SceneExport {
 	public:
 		
@@ -107,6 +123,8 @@ public:
 	int _MeshCount;
 	int _ObjCount;
 	int _MtlCount;
+	
+	Tab<ObjectInfo*> _ObjInfoList;
 
 	int		SaveMd5Mesh(ExpInterface *ei, Interface *gi);
 
@@ -141,13 +159,14 @@ public:
 
 	void DumpObject() 
 	{
-		fprintf(_OutFile,"object {\r\n");
-		for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
+		fprintf(_OutFile,"objects {\r\n");
+		for (int i=0;i<_ObjCount;++i)
 		{
-			IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
-
-			DumpObject(pGameNode);
+			fprintf(_OutFile,"\t\"%s\" %d %d\r\n",_ObjInfoList[i]->Name,_ObjInfoList[i]->StartMesh,_ObjInfoList[i]->MeshCount);
+			delete _ObjInfoList[i];
+			_ObjInfoList[i]=NULL;
 		}
+		_ObjInfoList.Delete(0,_ObjCount);
 		fprintf(_OutFile,"}\r\n\r\n");
 	}
 
@@ -160,8 +179,8 @@ public:
 			IGameMesh * gM = (IGameMesh*)obj;
 			if(gM->InitializeData())
 			{
-				fprintf(_OutFile,"name %s\r\n\r\n",pGameNode->GetName());
 				DumpSubObject(gM);
+				fprintf(_OutFile,"name %s\r\n\r\n",pGameNode->GetName());
 			}
 			else
 			{
@@ -281,6 +300,7 @@ public:
 
 	void CountMesh( IGameObject * obj, Tab<MCHAR*>& MtlNames) 
 	{
+		_ObjInfoList[_ObjCount-1]->StartMesh=_MeshCount;
 		IGameMesh * gM = (IGameMesh*)obj;
 		if(gM->InitializeData())
 		{
@@ -289,16 +309,16 @@ public:
 			for(int i=0;i < mapCount;i++)
 			{
 				int fCount = gM->GetNumberOfFaces();
-
+				Tab<MCHAR*> meshMtlNames;
 				for(int k=0;k<fCount;k++)
 				{
 					IGameMaterial* mat=gM->GetMaterialFromFace(k);
-					int nameCount=MtlNames.Count();
+					int nameCount=meshMtlNames.Count();
 					int n=0;
 					MCHAR* matName=mat->GetMaterialName();
 					for (;n<nameCount;++n)
 					{
-						const MCHAR* curName=MtlNames[n];
+						const MCHAR* curName=meshMtlNames[n];
 						if (strcmp(matName,curName)==0)
 						{
 							break;
@@ -307,17 +327,40 @@ public:
 
 					if (n==nameCount)
 					{
-						MtlNames.Append(1,&matName);
+						meshMtlNames.Append(1,&matName);
 						_MeshCount++;
+
+						CoutMtl(MtlNames,matName);
 					}
 				}
 			}
+			_ObjInfoList[_ObjCount-1]->MeshCount=_MeshCount-_ObjInfoList[_ObjCount-1]->StartMesh;
 		}
 		else
 		{
 			DebugPrint("BadObject\n");
 		}
 	}
+
+	void CoutMtl( Tab<MCHAR*> &MtlNames, MCHAR* matName ) 
+	{
+		int mtlCount=MtlNames.Count();
+		int m=0;
+		for (;m<mtlCount;++m)
+		{
+			const MCHAR* curName=MtlNames[m];
+			if (strcmp(matName,curName)==0)
+			{
+				break;
+			}
+		}
+
+		if (m==mtlCount)
+		{
+			MtlNames.Append(1,&matName);
+		}
+	}
+
 
 
 
@@ -520,7 +563,7 @@ int md5meshExporter::SaveMd5Mesh( ExpInterface *ei, Interface *gi )
 
 	DumpBones();
 
-	//DumpModel();
+	DumpObject();
 
 	fflush(_OutFile);
 	return TRUE;
@@ -561,6 +604,11 @@ void md5meshExporter::CountNodes( IGameNode * pGameNode,Tab<MCHAR*>& MtlNames )
 		obj->GetIGameType()==IGameObject::IGAME_MESH)
 	{
 		_ObjCount++;
+
+		ObjectInfo* info=new ObjectInfo();
+		info->Name=pGameNode->GetName();
+		_ObjInfoList.Append(1,&info);
+
 		CountMesh(obj,MtlNames);
 	}
 	fprintf(_OutFile,"%s %d\n",pGameNode->GetName(),obj->GetIGameType());
