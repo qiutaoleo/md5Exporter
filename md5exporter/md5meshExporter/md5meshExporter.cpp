@@ -22,6 +22,7 @@
 #include <conio.h>
 #include <iostream>
 #include <hash_map>
+#include <map>
 using namespace std;
 
 /************************************************************************/
@@ -89,8 +90,6 @@ struct ObjectInfo
 	int MeshCount;
 };
 
-
-
 struct MaterialInfo
 {
 	MaterialInfo()
@@ -104,6 +103,32 @@ struct MaterialInfo
 	MCHAR* Opacity;
 };
 
+struct WeightInfo;
+
+struct VertexInfo
+{
+	VertexInfo()
+		:VertIndex(-1),
+		TexCoordIndex(-1),
+		WeightIndex(-1),
+		WeightCount(-1)
+	{
+
+	}
+	int VertIndex;
+	int TexCoordIndex;
+	Point2 UV;
+	int WeightIndex;
+	int WeightCount;
+
+	vector<WeightInfo> Weights;
+};
+
+struct TriInfo
+{
+	int Index[3];
+};
+
 struct WeightInfo 
 {
 	WeightInfo()
@@ -113,6 +138,7 @@ struct WeightInfo
 	}
 	float Value;
 	IGameNode* Bone;
+	Point3 Offset;
 };
 
 
@@ -248,8 +274,8 @@ public:
 						IGameModifier * gMod = obj->GetIGameModifier(i);
 						if (gMod->IsSkin())
 						{
-							fprintf(_OutFile,"//node %s\r\n",pGameNode->GetName());
-							DumpSubMesh(gM,(IGameSkin*)gMod);
+							fprintf(_OutFile,"//node %s %d %d\r\n",pGameNode->GetName(),gM->GetNumberOfTexVerts (),gM->GetNumberOfVerts());
+							DumpSubMesh(((IGameSkin*)gMod)->GetInitialPose(),(IGameSkin*)gMod);
 							break;;
 						}
 					}
@@ -329,109 +355,171 @@ public:
 
 	void DumpVertex( IGameMesh * gM,Tab<FaceEx *> faces, IGameSkin* gSkin) 
 	{
-		hash_map<int,int> vertMap;
+		vector<VertexInfo> vertList;
+		vector<TriInfo> triList;
 		int faceCount=faces.Count();
+		int weightIndex=0;
 		for (int f=0;f<faceCount;++f)
 		{
-			vertMap[faces[f]->vert[0]]=faces[f]->texCoord[0];
-			vertMap[faces[f]->vert[1]]=faces[f]->texCoord[1];
-			vertMap[faces[f]->vert[2]]=faces[f]->texCoord[2];
+			TriInfo tri;
+			for (int i=0;i<3;++i)
+			{
+				VertexInfo info;
+				info.VertIndex=faces[f]->vert[i];
+				info.TexCoordIndex=faces[f]->texCoord[i];
+
+				int vertCount=(int)vertList.size();
+				int v=0;
+				for (;v<vertCount;++v)
+				{
+					VertexInfo& curinfo=vertList.at(v);
+					if (info.VertIndex==curinfo.VertIndex)
+					{
+						if (info.TexCoordIndex==curinfo.TexCoordIndex)
+						{
+							tri.Index[i]=v;
+							break;
+						}
+						else
+						{
+							info.WeightIndex=curinfo.WeightIndex;
+							info.WeightCount=curinfo.WeightCount;
+						}
+					}
+				}
+				if (v==vertCount)
+				{
+					VertexUV(info, gM);
+
+					if (-1==info.WeightIndex&&-1==info.WeightCount)
+					{
+						info.WeightIndex=weightIndex;
+						info.WeightCount=gSkin->GetNumberOfBones(info.VertIndex);
+						
+						weightIndex+=info.WeightCount>VERT_MAX_BONES?VERT_MAX_BONES:info.WeightCount;
+
+						VertexWeight(info, gSkin, gM);
+					}
+
+					vertList.push_back(info);
+
+					tri.Index[i]=(int)vertList.size()-1;
+				}
+			}
+			triList.push_back(tri);
 		}
 
-		fprintf(_OutFile,"\tnumverts %d\r\n",vertMap.size());
-		
-		int weightIndex=0;
-		int vertIndex=0;
-		for (hash_map<int,int>::iterator itv=vertMap.begin();
-			itv!=vertMap.end();++itv)
+		fprintf(_OutFile,"\tnumverts %d\r\n",vertList.size());
+
+		int vertCount=(int)vertList.size();
+		for (int v=0;v<vertCount;++v)
 		{
-			Point2 uv=gM->GetTexVertex(itv->second);
-			int weightCount=gSkin->GetNumberOfBones(itv->first);
-			if (weightCount>VERT_MAX_BONES)
-				weightCount=VERT_MAX_BONES;
-			itv->second=vertIndex;
-			if (uv.x>1.f)
-				uv.x-=1.f;
-			if (uv.y<0.f)
-				uv.y+=1.f;
-			fprintf(_OutFile,"\tvert %d ( %f %f ) %d %d\r\n",vertIndex,
-				uv.x,uv.y,
-				weightIndex,weightCount);
-			weightIndex+=weightCount;
-			vertIndex++;
+			VertexInfo& curinfo=vertList.at(v);
+
+			fprintf(_OutFile,"\tvert %d ( %f %f ) %d %d\r\n",v,
+				curinfo.UV.x,curinfo.UV.y,
+				curinfo.WeightIndex,curinfo.WeightCount);
 		}
 
 		fprintf(_OutFile,"\r\n\tnumtris %d\r\n",faceCount);
 
-		for (int f=0;f<faceCount;++f)
+		int triCount=(int)triList.size();
+		for (int t=0;t<triCount;++t)
 		{
-			fprintf(_OutFile,"\ttri %d %d %d %d\r\n",f,
-				vertMap[faces[f]->vert[0]],
-				vertMap[faces[f]->vert[1]],
-				vertMap[faces[f]->vert[2]]);
+			TriInfo& tri=triList.at(t);
+
+			fprintf(_OutFile,"\ttri %d %d %d %d\r\n",t,
+				tri.Index[0],
+				tri.Index[2],
+				tri.Index[1]);
 		}
 		
 		fprintf(_OutFile,"\r\n\tnumweights %d\r\n",weightIndex);
 
-		weightIndex=0;
-		for (hash_map<int,int>::iterator itv=vertMap.begin();
-			itv!=vertMap.end();++itv)
+		for (int v=0;v<vertCount;++v)
 		{
-			int weightCount=gSkin->GetNumberOfBones(itv->first);
-			if (weightCount>VERT_MAX_BONES)
-				weightCount=VERT_MAX_BONES;
-			
-			WeightInfo weights[VERT_MAX_BONES]={WeightInfo()};
-			int usedWeight=0;
-			
-			int boneCount=gSkin->GetTotalBoneCount();
-			for (int b=0;b<boneCount;++b)
-			{
-				IGameNode* gBone=gSkin->GetIGameBone(b);
+			VertexInfo& curinfo=vertList.at(v);
 
-				float curWeight=gSkin->GetWeight(itv->first,gSkin->GetBoneIndex(gBone));
-				if (usedWeight==weightCount)
-				{
-					for (int u=0;u<usedWeight;++u)
-					{
-						if (weights[u].Value<curWeight)
-						{
-							weights[u].Value=curWeight;
-							weights[u].Bone=gBone;
-							break;
-						}
-					}
-				}
-				else if (usedWeight<weightCount)
-				{
-					weights[usedWeight].Value=curWeight;
-					weights[usedWeight].Bone=gBone;
-					usedWeight++;
-				}
-			}
-
-			float totalWeight=0;
-			for (int u=0;u<usedWeight;++u)
+			int weightCount=(int)curinfo.Weights.size();
+			for (int u=0;u<weightCount;++u)
 			{
-				totalWeight+=weights[u].Value;
-			}
-			Point3 vertPos=gM->GetVertex(itv->first,true);
-			for (int u=0;u<usedWeight;++u)
-			{
-				weights[u].Value/=totalWeight;
-				Point3 weightPos=vertPos*weights[u].Bone->GetIGameObject()->GetIGameObjectTM().Inverse();
+				WeightInfo& weight=curinfo.Weights.at(u);
 
-				fprintf(_OutFile,"\tweight %d %d %f ( %f %f %f )\r\n",weightIndex,
-					_BoneIndexList[weights[u].Bone->GetName()],
-					weights[u].Value,
-					weightPos.x,
-					weightPos.y,
-					weightPos.z);
-				weightIndex++;
+				fprintf(_OutFile,"\tweight %d %d %f ( %f %f %f )\r\n",curinfo.WeightIndex+u,
+					_BoneIndexList[weight.Bone->GetName()],
+					weight.Value,
+					weight.Offset.x,
+					weight.Offset.y,
+					weight.Offset.z);
 			}
 		}
 
 	}
+
+	void VertexUV( VertexInfo &info, IGameMesh * gM ) 
+	{
+		info.UV=gM->GetTexVertex(info.TexCoordIndex);
+		if (info.UV.x>=1.f)
+			info.UV.x-=1.f;
+		if (info.UV.y<0.f)
+			info.UV.y=-info.UV.y;
+		else
+			info.UV.y=1.f-info.UV.y;
+	}
+
+
+	void VertexWeight( VertexInfo &info, IGameSkin* gSkin, IGameMesh * gM ) 
+	{
+		int weightCount=info.WeightCount;
+		WeightInfo weights[VERT_MAX_BONES]={WeightInfo()};
+
+		for (int b=0;b<weightCount;++b)
+		{
+			float curWeight=gSkin->GetWeight(info.VertIndex,b);
+
+			if (b<VERT_MAX_BONES)
+			{
+				weights[b].Value=curWeight;
+				weights[b].Bone=gSkin->GetIGameBone(info.VertIndex,b);
+			}
+			else 
+			{
+				for (int u=0;u<VERT_MAX_BONES;++u)
+				{
+					if (weights[u].Value<curWeight)
+					{
+						weights[u].Value=curWeight;
+						weights[u].Bone=gSkin->GetIGameBone(info.VertIndex,b);
+						break;
+					}
+				}
+			}
+		}
+
+		float totalWeight=0;
+		if (weightCount>VERT_MAX_BONES)
+			weightCount=VERT_MAX_BONES;
+		for (int u=0;u<weightCount;++u)
+		{
+			totalWeight+=weights[u].Value;
+		}
+		Point3 vertPos=gM->GetVertex(info.VertIndex);
+		for (int u=0;u<weightCount;++u)
+		{
+			weights[u].Value/=totalWeight;
+
+			GMatrix initMat;
+			if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
+			{
+				initMat=weights[u].Bone->GetIGameObject()->GetIGameObjectTM();
+			}
+			initMat=initMat.Inverse();
+			weights[u].Offset=vertPos*initMat;
+
+			info.Weights.push_back(weights[u]);
+		}
+	}
+
 
 
 
@@ -623,6 +711,8 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 			_OutFile=outFile.File();
 
 			result=SaveMd5Mesh(ei,i);
+
+			MessageBox( GetActiveWindow(), name, _T("md5mesh finish"), 0 );
 
 			pIgame->ReleaseIGame();
 			_OutFile=NULL;
