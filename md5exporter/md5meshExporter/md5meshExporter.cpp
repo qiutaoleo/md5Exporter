@@ -117,6 +117,7 @@ struct VertexInfo
 	}
 	int VertIndex;
 	int TexCoordIndex;
+	Point3 Pos;
 	Point2 UV;
 	int WeightIndex;
 	int WeightCount;
@@ -139,7 +140,6 @@ struct WeightInfo
 	float Value;
 	IGameNode* Bone;
 	Point3 Offset;
-	Quat Rot;
 };
 
 
@@ -386,14 +386,49 @@ public:
 						}
 						else
 						{
+							VertexUV(info, gM);
+
+							if (info.UV.Equals(curinfo.UV))
+							{
+								tri.Index[i]=v;
+								break;
+							}
+
 							info.WeightIndex=curinfo.WeightIndex;
 							info.WeightCount=curinfo.WeightCount;
+						}
+					}
+					else
+					{
+						VertexPos(gM, info);
+
+						if (info.Pos.Equals(curinfo.Pos))
+						{
+							if (info.TexCoordIndex==curinfo.TexCoordIndex)
+							{
+								tri.Index[i]=v;
+								break;
+							}
+							else
+							{
+								VertexUV(info, gM);
+
+								if (info.UV.Equals(curinfo.UV))
+								{
+									tri.Index[i]=v;
+									break;
+								}
+
+								info.WeightIndex=curinfo.WeightIndex;
+								info.WeightCount=curinfo.WeightCount;
+							}
 						}
 					}
 				}
 				if (v==vertCount)
 				{
 					VertexUV(info, gM);
+					VertexPos(gM, info);
 
 					if (-1==info.WeightIndex&&-1==info.WeightCount)
 					{
@@ -422,7 +457,7 @@ public:
 
 			fprintf(_OutFile,"\tvert %d ( %f %f ) %d %d\r\n",v,
 				curinfo.UV.x,curinfo.UV.y,
-				curinfo.WeightIndex,curinfo.WeightCount);
+				curinfo.WeightIndex,curinfo.WeightCount>VERT_MAX_BONES?VERT_MAX_BONES:curinfo.WeightCount);
 		}
 
 		fprintf(_OutFile,"\r\n\tnumtris %d\r\n",faceCount);
@@ -459,6 +494,12 @@ public:
 		}
 
 	}
+
+	void VertexPos( IGameMesh * gM, VertexInfo &info ) 
+	{
+		info.Pos=gM->GetVertex(info.VertIndex);
+	}
+
 
 	void VertexUV( VertexInfo &info, IGameMesh * gM ) 
 	{
@@ -507,7 +548,6 @@ public:
 		{
 			totalWeight+=weights[u].Value;
 		}
-		Point3 vertPos=gM->GetVertex(info.VertIndex);
 		for (int u=0;u<weightCount;++u)
 		{
 			weights[u].Value/=totalWeight;
@@ -518,24 +558,9 @@ public:
 				IGameControl * pGC=weights[u].Bone->GetIGameControl();
 				initMat=weights[u].Bone->GetIGameObject()->GetIGameObjectTM();
 			}
-			/*Quat quat=initMat.Rotation();
-			if (quat.w>0.f)
-			{
-				quat.x=-quat.x;
-				quat.y=-quat.y;
-				quat.z=-quat.z;
-				quat.w=-quat.w;
-			}
-			
-			Point3 pos=initMat.Translation();
-			Matrix3 mat;
-			mat.IdentityMatrix();
-			mat.SetRotate(quat);
-			mat.SetTrans(pos);
-			mat.Invert();*/
+
 			initMat=initMat.Inverse();
-			weights[u].Offset=vertPos*initMat;
-			//weights[u].Rot=Quat(mat);
+			weights[u].Offset=info.Pos*initMat;
 			info.Weights.push_back(weights[u]);
 		}
 	}
