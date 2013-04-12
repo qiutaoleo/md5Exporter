@@ -139,6 +139,7 @@ struct WeightInfo
 	float Value;
 	IGameNode* Bone;
 	Point3 Offset;
+	Quat Rot;
 };
 
 
@@ -195,12 +196,16 @@ public:
 	{
 		int index=CurIndex;
 		IGameObject * obj = pGameNode->GetIGameObject();
-		if (obj->GetIGameType()==IGameObject::IGAME_BONE/*||
-			obj->GetIGameType()==IGameObject::IGAME_HELPER*/)
+		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
 		{
 			GMatrix mat=obj->GetIGameObjectTM();
 			Point3 pos=mat.Translation();
-			Point3 quat=mat.Rotation();
+			Quat quat=mat.Rotation();
+			if (quat.w<0)
+			{
+				quat=-quat;
+			}
 			MCHAR* name=pGameNode->GetName();
 			fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n",name,ParentIndex,
 				pos.x,pos.y,pos.z,quat.x,quat.y,quat.z);
@@ -268,14 +273,13 @@ public:
 				int numMod = obj->GetNumModifiers();
 				if(numMod > 0)
 				{
-					int i=0;
-					for(;i<numMod;i++)
+					for(int i=0;i<numMod;i++)
 					{
 						IGameModifier * gMod = obj->GetIGameModifier(i);
 						if (gMod->IsSkin())
 						{
 							fprintf(_OutFile,"//node %s %d %d\r\n",pGameNode->GetName(),gM->GetNumberOfTexVerts (),gM->GetNumberOfVerts());
-							DumpSubMesh(((IGameSkin*)gMod)->GetInitialPose(),(IGameSkin*)gMod);
+							DumpSubMesh(((IGameSkin*)gMod)->GetInitialPose(),(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
 							break;;
 						}
 					}
@@ -511,11 +515,27 @@ public:
 			GMatrix initMat;
 			if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
 			{
+				IGameControl * pGC=weights[u].Bone->GetIGameControl();
 				initMat=weights[u].Bone->GetIGameObject()->GetIGameObjectTM();
 			}
+			/*Quat quat=initMat.Rotation();
+			if (quat.w>0.f)
+			{
+				quat.x=-quat.x;
+				quat.y=-quat.y;
+				quat.z=-quat.z;
+				quat.w=-quat.w;
+			}
+			
+			Point3 pos=initMat.Translation();
+			Matrix3 mat;
+			mat.IdentityMatrix();
+			mat.SetRotate(quat);
+			mat.SetTrans(pos);
+			mat.Invert();*/
 			initMat=initMat.Inverse();
 			weights[u].Offset=vertPos*initMat;
-
+			//weights[u].Rot=Quat(mat);
 			info.Weights.push_back(weights[u]);
 		}
 	}
@@ -767,8 +787,8 @@ void md5meshExporter::DumpCount()
 void md5meshExporter::CountNodes( IGameNode * pGameNode )
 {
 	IGameObject * obj = pGameNode->GetIGameObject();
-	if (obj->GetIGameType()==IGameObject::IGAME_BONE/*||
-		obj->GetIGameType()==IGameObject::IGAME_HELPER*/)
+	if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
+		obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
 	{
 		_BoneCount++;
 	}
