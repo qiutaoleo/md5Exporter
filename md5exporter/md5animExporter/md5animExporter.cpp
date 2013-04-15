@@ -128,6 +128,10 @@ public:
 
 		DumpBounds();
 
+		DumpBaseFrame();
+
+		DumpFrames();
+
 		fflush(_OutFile);
 		return TRUE;
 	}
@@ -135,7 +139,7 @@ public:
 	void DumpCount(Interface * gi) 
 	{
 		Interval animation=gi->GetAnimRange();
-		_FrameCount=(animation.End()-animation.Start())/GetTicksPerFrame();
+		_FrameCount=(animation.End()-animation.Start())/GetTicksPerFrame()+1;
 		_BoneCount=0;
 		_FrameRate=GetFrameRate();
 		_AnimatedCount=0;
@@ -166,9 +170,7 @@ public:
 			bone.SelfIndex=(int)_BoneList.size();
 			bone.ParentIndex=ParentIndex;
 
-			GMatrix mat=obj->GetIGameObjectTM();
-			bone.Pos=mat.Translation();
-			bone.Rot=mat.Rotation();
+			BasePose(pGameNode,obj,bone);
 
 			CountAnimated(pGameNode,obj,bone);
 
@@ -184,6 +186,20 @@ public:
 
 			CountNodes(child,index);
 		}
+	}
+
+	void BasePose( IGameNode * pGameNode,IGameObject * obj , BoneInfo& bone ) 
+	{
+		GMatrix mat=obj->GetIGameObjectTM();
+		IGameNode* parent=pGameNode->GetNodeParent();
+		if (parent)
+		{
+			GMatrix parentMat=parent->GetIGameObject()->GetIGameObjectTM();
+			mat*=parentMat.Inverse();
+		}
+
+		bone.Pos=mat.Translation();
+		bone.Rot=mat.Rotation();
 	}
 
 	void CountAnimated(IGameNode * pGameNode,IGameObject * obj,BoneInfo & bone) 
@@ -270,8 +286,6 @@ public:
 
 		for (TimeValue tv = start; tv <= end; tv += ticks)
 		{
-			int frameNum=tv/ticks;
-
 			Box3 objBound;
 			for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 			{
@@ -300,6 +314,100 @@ public:
 		
 		fprintf(_OutFile,"}\r\n\r\n");
 	}
+
+	void DumpBaseFrame() 
+	{
+		fprintf(_OutFile,"baseframe {\r\n");
+
+		int boneCount=(int)_BoneList.size();
+		for (int i=0;i<boneCount;++i)
+		{
+			BoneInfo& info=_BoneList.at(i);
+			Quat rot=info.Rot;
+			if (rot.w<0)
+			{
+				rot=-rot;
+			}
+			fprintf(_OutFile,"\t( %f %f %f ) ( %f %f %f )\r\n",
+				info.Pos.x,info.Pos.y,info.Pos.z,
+				rot.x,rot.y,rot.z);
+		}
+
+		fprintf(_OutFile,"}\r\n\r\n");
+	}
+
+	void DumpFrames() 
+	{
+		TimeValue start=pIgame->GetSceneStartTime();
+		TimeValue end=pIgame->GetSceneEndTime();
+		TimeValue ticks=pIgame->GetSceneTicks();
+
+		for (TimeValue tv = start; tv <= end; tv += ticks)
+		{
+			int frameNum=tv/ticks;
+			fprintf(_OutFile,"frame %d {\r\n",frameNum);
+
+			for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
+			{
+				IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
+				DumpPosRot(pGameNode,tv);
+			}
+
+			fprintf(_OutFile,"}\r\n\r\n");
+		}
+		
+	}
+
+	void DumpPosRot( IGameNode * pGameNode,TimeValue tv ) 
+	{
+		IGameObject * obj = pGameNode->GetIGameObject();
+		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+		{
+			INode* maxNode=pGameNode->GetMaxNode();
+			const ObjectState& objState=maxNode->EvalWorldState(tv);
+			Matrix3 mat=maxNode->GetNodeTM(tv);
+			mat.NoScale();
+			INode* parent=maxNode->GetParentNode();
+			bool isMirrored=false;
+
+			if (parent)
+			{
+				Matrix3 parentMat=parent->GetNodeTM(tv);
+				isMirrored=DotProd( CrossProd( parentMat.GetRow(0).Normalize(),parentMat.GetRow(1).Normalize() ).Normalize(), parentMat.GetRow(2).Normalize() ) < 0;
+				parentMat.NoScale();
+				parentMat.Invert();
+				mat*=parentMat;
+			}
+
+			Point3 pos=mat.GetTrans();
+			if (isMirrored)
+			{
+				pos = pos * -1.0f;
+			}
+			Quat rot(mat);
+
+			fprintf(_OutFile,"\t%f %f %f %f %f %f\r\n",
+				pos.x,pos.y,pos.z,
+				rot.x,rot.y,rot.z);
+		}
+
+		pGameNode->ReleaseIGameObject();
+
+		for(int i=0;i<pGameNode->GetChildCount();i++)
+		{
+			IGameNode * child = pGameNode->GetNodeChild(i);
+
+			DumpPosRot(child,tv);
+		}
+	}
+
+
+
+
+
+
+
 
 
 
