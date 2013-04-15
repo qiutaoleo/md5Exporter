@@ -78,6 +78,8 @@ struct BoneInfo
 	int ParentIndex;
 	int Flag;
 	int StartIndex;
+	Point3 Pos;
+	Quat Rot;
 };
 
 
@@ -124,6 +126,8 @@ public:
 
 		DumpHierarchy();
 
+		DumpBounds();
+
 		fflush(_OutFile);
 		return TRUE;
 	}
@@ -162,6 +166,10 @@ public:
 			bone.SelfIndex=(int)_BoneList.size();
 			bone.ParentIndex=ParentIndex;
 
+			GMatrix mat=obj->GetIGameObjectTM();
+			bone.Pos=mat.Translation();
+			bone.Rot=mat.Rotation();
+
 			CountAnimated(pGameNode,obj,bone);
 
 			_BoneList.push_back(bone);
@@ -180,10 +188,6 @@ public:
 
 	void CountAnimated(IGameNode * pGameNode,IGameObject * obj,BoneInfo & bone) 
 	{
-		GMatrix mat=obj->GetIGameObjectTM();
-		Point3 nodePos=mat.Translation();
-		Quat nodeRot=mat.Rotation();
-
 		bone.StartIndex=_AnimatedCount;
 
 		IGameKeyTab posKeys,rotKeys;
@@ -194,15 +198,15 @@ public:
 			for(int i = 0;i<posKeys.Count();i++)
 			{
 				Point3& pos=posKeys[i].sampleKey.pval;
-				if (abs(pos.x-nodePos.x)>1E-6f)
+				if (abs(pos.x-bone.Pos.x)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Pos_X;
 				}
-				if (abs(pos.y-nodePos.y)>1E-6f)
+				if (abs(pos.y-bone.Pos.y)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Pos_Y;
 				}
-				if (abs(pos.z-nodePos.z)>1E-6f)
+				if (abs(pos.z-bone.Pos.z)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Pos_Z;
 				}
@@ -213,15 +217,15 @@ public:
 			for(int i = 0;i<rotKeys.Count();i++)
 			{
 				Quat& rot=rotKeys[i].sampleKey.qval;
-				if (abs(rot.x-nodeRot.x)>1E-6f)
+				if (abs(rot.x-bone.Rot.x)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Rot_X;
 				}
-				if (abs(rot.y-nodeRot.y)>1E-6f)
+				if (abs(rot.y-bone.Rot.y)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Rot_Y;
 				}
-				if (abs(rot.z-nodeRot.z)>1E-6f)
+				if (abs(rot.z-bone.Rot.z)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Rot_Z;
 				}
@@ -255,6 +259,49 @@ public:
 		}
 		fprintf(_OutFile,"}\r\n\r\n");
 	}
+
+	void DumpBounds() 
+	{
+		fprintf(_OutFile,"bounds {\r\n");
+
+		TimeValue start=pIgame->GetSceneStartTime();
+		TimeValue end=pIgame->GetSceneEndTime();
+		TimeValue ticks=pIgame->GetSceneTicks();
+
+		for (TimeValue tv = start; tv <= end; tv += ticks)
+		{
+			int frameNum=tv/ticks;
+
+			Box3 objBound;
+			for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
+			{
+				IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
+				IGameObject * obj = pGameNode->GetIGameObject();
+				if (!pGameNode->IsNodeHidden()&&
+					obj->GetIGameType()==IGameObject::IGAME_MESH)
+				{
+					INode* maxNode=pGameNode->GetMaxNode();
+					const ObjectState& objState=maxNode->EvalWorldState(tv);
+					Object* maxObj=objState.obj;
+					Box3 bb;
+					Matrix3 mat=maxNode->GetNodeTM(tv);
+					maxObj->GetDeformBBox(tv,bb,&mat);
+					objBound+=bb;
+				}
+			}
+
+			Point3 min=objBound.Min()-_BoneList.at(0).Pos;
+			Point3 max=objBound.Max()-_BoneList.at(0).Pos;
+			fprintf(_OutFile,"\t( %f %f %f ) ( %f %f %f )\r\n",
+				min.x,min.y,min.z,
+				max.x,max.y,max.z);
+		}
+
+		
+		fprintf(_OutFile,"}\r\n\r\n");
+	}
+
+
 
 
 
