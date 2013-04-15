@@ -69,7 +69,8 @@ struct BoneInfo
 		SelfIndex(-1),
 		ParentIndex(-1),
 		Flag(0),
-		StartIndex(-1)
+		StartIndex(-1),
+		isMirrored(FALSE)
 	{
 
 	}
@@ -78,6 +79,13 @@ struct BoneInfo
 	int ParentIndex;
 	int Flag;
 	int StartIndex;
+	Point3 Pos;
+	Quat Rot;
+	BOOL isMirrored;
+};
+
+struct FrameInfo
+{
 	Point3 Pos;
 	Quat Rot;
 };
@@ -191,12 +199,17 @@ public:
 	void BasePose( IGameNode * pGameNode,IGameObject * obj , BoneInfo& bone ) 
 	{
 		GMatrix mat=obj->GetIGameObjectTM();
-		IGameNode* parent=pGameNode->GetNodeParent();
-		if (parent)
-		{
-			GMatrix parentMat=parent->GetIGameObject()->GetIGameObjectTM();
-			mat*=parentMat.Inverse();
-		}
+		Matrix3 objMat=mat.ExtractMatrix3();
+		objMat.NoScale();
+		bone.isMirrored=DotProd( CrossProd( objMat.GetRow(0).Normalize(), objMat.GetRow(1).Normalize() ).Normalize(), objMat.GetRow(2).Normalize() ) < 0;
+		
+		mat=pGameNode->GetLocalTM(0);
+		//IGameNode* parent=pGameNode->GetNodeParent();
+		//if (parent)
+		//{
+		//	GMatrix parentMat=parent->GetIGameObject()->GetIGameObjectTM();
+		//	mat*=parentMat.Inverse();
+		//}
 
 		bone.Pos=mat.Translation();
 		bone.Rot=mat.Rotation();
@@ -209,11 +222,11 @@ public:
 		IGameKeyTab posKeys,rotKeys;
 		IGameControl * pGC = pGameNode->GetIGameControl();
 		int flag=0;
-		if (pGC->GetFullSampledKeys(posKeys,_FrameRate,IGAME_POS))
+		if (pGC->GetFullSampledKeys(posKeys,1,IGAME_POS))
 		{
 			for(int i = 0;i<posKeys.Count();i++)
 			{
-				Point3& pos=posKeys[i].sampleKey.pval;
+				Point3 pos=posKeys[i].sampleKey.pval;
 				if (abs(pos.x-bone.Pos.x)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Pos_X;
@@ -228,11 +241,11 @@ public:
 				}
 			}
 		}
-		if (pGC->GetFullSampledKeys(rotKeys,_FrameRate,IGAME_ROT))
+		if (pGC->GetFullSampledKeys(rotKeys,1,IGAME_ROT))
 		{
 			for(int i = 0;i<rotKeys.Count();i++)
 			{
-				Quat& rot=rotKeys[i].sampleKey.qval;
+				Quat rot=rotKeys[i].sampleKey.qval;
 				if (abs(rot.x-bone.Rot.x)>1E-6f)
 				{
 					flag|=eHierarchyFlag_Rot_X;
@@ -324,10 +337,10 @@ public:
 		{
 			BoneInfo& info=_BoneList.at(i);
 			Quat rot=info.Rot;
-			if (rot.w<0)
-			{
-				rot=-rot;
-			}
+			//if (rot.w<0)
+			//{
+			//	rot=-rot;
+			//}
 			fprintf(_OutFile,"\t( %f %f %f ) ( %f %f %f )\r\n",
 				info.Pos.x,info.Pos.y,info.Pos.z,
 				rot.x,rot.y,rot.z);
@@ -338,6 +351,61 @@ public:
 
 	void DumpFrames() 
 	{
+		//vector< vector<FrameInfo> > boneFrames;
+		//for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
+		//{
+		//	IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
+		//	BoneFrames(pGameNode,boneFrames);
+		//}
+		//
+		//Matrix3 leftcoord;
+		//leftcoord.SetRow(0,Point3(1,0,0));
+		//leftcoord.SetRow(1,Point3(0,0,1));
+		//leftcoord.SetRow(2,Point3(0,1,0));
+		//leftcoord.SetRow(3,Point3(0,0,0));
+
+		//for (int f=0;f<_FrameCount;++f)
+		//{
+		//	fprintf(_OutFile,"frame %d {\r\n",f);
+
+		//	for (int b=0;b<_BoneCount;++b)
+		//	{
+		//		BoneInfo& boneInfo=_BoneList.at(b);
+		//		vector<FrameInfo>& framse=boneFrames.at(b);
+		//		FrameInfo& curInfo=framse.at(f);
+		//		Matrix3 mat;
+		//		mat.SetTrans(curInfo.Pos);
+		//		mat.SetRotate(curInfo.Rot);
+		//		mat=leftcoord*mat;
+		//		mat.NoScale();
+		//		bool isMirrored=false;
+		//		if (boneInfo.ParentIndex>-1)
+		//		{
+		//			vector<FrameInfo>& parentFramse=boneFrames.at(boneInfo.ParentIndex);
+		//			FrameInfo& parentInfo=parentFramse.at(f);
+		//			Matrix3 parentMat;
+		//			parentMat.SetTrans(parentInfo.Pos);
+		//			parentMat.SetRotate(parentInfo.Rot);
+		//			isMirrored=DotProd( CrossProd( parentMat.GetRow(0).Normalize(),parentMat.GetRow(1).Normalize() ).Normalize(), parentMat.GetRow(2).Normalize() ) < 0;
+		//			parentMat=leftcoord*parentMat;
+		//			parentMat.NoScale();
+		//			parentMat.Invert();
+		//			mat*=parentMat;
+		//		}
+		//		Point3 pos=mat.GetTrans();
+		//		if (isMirrored)
+		//		{
+		//			pos = pos * -1.0f;
+		//		}
+		//		Quat rot(mat);
+
+		//		AnimData(b, pos, rot);
+		//	}
+
+		//	fprintf(_OutFile,"}\r\n\r\n");
+		//}
+		
+
 		TimeValue start=pIgame->GetSceneStartTime();
 		TimeValue end=pIgame->GetSceneEndTime();
 		TimeValue ticks=pIgame->GetSceneTicks();
@@ -350,7 +418,8 @@ public:
 			for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 			{
 				IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
-				DumpPosRot(pGameNode,tv);
+				int index=0;
+				DumpPosRot(pGameNode,tv,index);
 			}
 
 			fprintf(_OutFile,"}\r\n\r\n");
@@ -358,7 +427,7 @@ public:
 		
 	}
 
-	void DumpPosRot( IGameNode * pGameNode,TimeValue tv ) 
+	void DumpPosRot( IGameNode * pGameNode,TimeValue tv ,int& nodeIndex) 
 	{
 		IGameObject * obj = pGameNode->GetIGameObject();
 		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
@@ -369,27 +438,30 @@ public:
 			Matrix3 mat=maxNode->GetNodeTM(tv);
 			mat.NoScale();
 			INode* parent=maxNode->GetParentNode();
-			bool isMirrored=false;
-
 			if (parent)
 			{
 				Matrix3 parentMat=parent->GetNodeTM(tv);
-				isMirrored=DotProd( CrossProd( parentMat.GetRow(0).Normalize(),parentMat.GetRow(1).Normalize() ).Normalize(), parentMat.GetRow(2).Normalize() ) < 0;
 				parentMat.NoScale();
 				parentMat.Invert();
 				mat*=parentMat;
 			}
 
 			Point3 pos=mat.GetTrans();
-			if (isMirrored)
+			if (_BoneList.at(nodeIndex).isMirrored)
 			{
 				pos = pos * -1.0f;
+				fprintf(_OutFile,"isMirrored\r\n");
 			}
 			Quat rot(mat);
+			//if (rot.w<0)
+			//{
+			//	rot=-rot;
+			//}
 
-			fprintf(_OutFile,"\t%f %f %f %f %f %f\r\n",
-				pos.x,pos.y,pos.z,
-				rot.x,rot.y,rot.z);
+			AnimData(nodeIndex, pos, rot);
+
+
+			nodeIndex++;
 		}
 
 		pGameNode->ReleaseIGameObject();
@@ -398,9 +470,105 @@ public:
 		{
 			IGameNode * child = pGameNode->GetNodeChild(i);
 
-			DumpPosRot(child,tv);
+			DumpPosRot(child,tv,nodeIndex);
 		}
 	}
+
+	void AnimData( int& nodeIndex, const Point3 &pos, const Quat &rot ) 
+	{
+		BoneInfo& info=_BoneList.at(nodeIndex);
+		float data[6];
+		int size=0;
+		if (info.Flag&eHierarchyFlag_Pos_X)
+			data[size++]=pos.x;
+		if (info.Flag&eHierarchyFlag_Pos_Y)
+			data[size++]=pos.y;
+		if (info.Flag&eHierarchyFlag_Pos_Z)
+			data[size++]=pos.z;
+
+		if (info.Flag&eHierarchyFlag_Rot_X)
+			data[size++]=rot.x;
+		if (info.Flag&eHierarchyFlag_Rot_Y)
+			data[size++]=rot.y;
+		if (info.Flag&eHierarchyFlag_Rot_Z)
+			data[size++]=rot.z;
+		switch (size)
+		{
+		case 0:
+			break;
+		case 1:
+			fprintf(_OutFile,"\t%f\r\n",
+				data[0]);
+			break;
+		case 2:
+			fprintf(_OutFile,"\t%f %f\r\n",
+				data[0],data[1]);
+			break;
+		case 3:
+			fprintf(_OutFile,"\t%f %f %f\r\n",
+				data[0],data[1],data[2]);
+			break;
+		case 4:
+			fprintf(_OutFile,"\t%f %f %f %f\r\n",
+				data[0],data[1],data[2],
+				data[3]);
+			break;
+		case 5:
+			fprintf(_OutFile,"\t%f %f %f %f %f\r\n",
+				data[0],data[1],data[2],
+				data[3],data[4]);
+			break;
+		case 6:
+			fprintf(_OutFile,"\t%f %f %f %f %f %f\r\n",
+				data[0],data[1],data[2],
+				data[3],data[4],data[5]);
+			break;
+		}
+	}
+
+	void BoneFrames( IGameNode * pGameNode ,vector< vector<FrameInfo> >& boneFrames) 
+	{
+		IGameObject * obj = pGameNode->GetIGameObject();
+		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+		{
+			vector<FrameInfo> frames;
+
+			IGameKeyTab posKeys,rotKeys;
+			IGameControl * pGC = pGameNode->GetIGameControl();
+			if (pGC->GetFullSampledKeys(posKeys,1,IGAME_POS))
+			{
+				for(int i = 0;i<posKeys.Count();i++)
+				{
+					FrameInfo info;
+					info.Pos=posKeys[i].sampleKey.pval;
+					frames.push_back(info);
+				}
+			}
+			if (pGC->GetFullSampledKeys(rotKeys,1,IGAME_ROT))
+			{
+				for(int i = 0;i<rotKeys.Count();i++)
+				{
+					if ((int)frames.size()<rotKeys.Count())
+					{
+						frames.push_back(FrameInfo());
+					}
+					frames.at(i).Rot=rotKeys[i].sampleKey.qval;
+				}
+			}
+
+			boneFrames.push_back(frames);
+		}
+		
+		for(int i=0;i<pGameNode->GetChildCount();i++)
+		{
+			IGameNode * child = pGameNode->GetNodeChild(i);
+
+			BoneFrames(child,boneFrames);
+		}
+	}
+
+
 
 
 
