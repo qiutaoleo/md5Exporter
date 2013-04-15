@@ -13,6 +13,9 @@
       <UniqueIdentifier>{ad6e765e-4300-41dc-b185-05b019286785}</UniqueIdentifier>
       <Extensions>ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
     </Filter>
+    <Filter Include="common">
+      <UniqueIdentifier>{31d9bdd7-375e-429d-ba4f-9c12a5f76df1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="md5animExporter.cpp">
@@ -36,6 +39,15 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\Define.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\MyErrorProc.h">
+      <Filter>common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\SimpleFile.h">
+      <Filter>common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

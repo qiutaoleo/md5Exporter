@@ -727,10 +727,6 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 {
 	//#pragma message(TODO("Implement the actual file Export here and"))
 
-	//AllocConsole();
-	//freopen("CONOUT$","w+t",stdout); 
-	//freopen("CONIN$","r+t",stdin);
-	//printf("开始导出\n");
 	int result=TRUE;
 	if(!suppressPrompts)
 	{
@@ -765,8 +761,6 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 		else
 			result=TRUE;
 	}
-	//getch();
-	//FreeConsole();
 	return result;
 }
 

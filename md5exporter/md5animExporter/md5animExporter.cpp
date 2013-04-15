@@ -13,8 +13,74 @@
 //***************************************************************************/
 
 #include "md5animExporter.h"
+#include "../common/SimpleFile.h"
+#include "../common/MyErrorProc.h"
+#include "../common/Define.h"
+#include <IGame/IGame.h>
+#include <IGame/IConversionManager.h>
+#include <IGame/IGameModifier.h>
+#include <conio.h>
+#include <iostream>
+#include <hash_map>
+#include <map>
+using namespace std;
+
+/************************************************************************/
+/* 
+
+MD5Version <int:version>
+commandline <string:commandline>
+
+numFrames <int:numFrames>
+numJoints <int:numJoints>
+frameRate <int:frameRate>
+numAnimatedComponents <int:numAnimatedComponents>
+
+hierarchy {
+<string:jointName> <int:parentIndex> <int:flags> <int:startIndex>
+...
+}
+
+bounds {
+( vec3:boundMin ) ( vec3:boundMax )
+...
+}
+
+baseframe {
+( vec3:position ) ( vec3:orientation )
+...
+}
+
+frame <int:frameNum> {
+<float:frameData> ...
+}
+...
+
+*/
+/************************************************************************/
+
 
 #define md5animExporter_CLASS_ID	Class_ID(0x7833d653, 0xc53b2ccf)
+
+struct BoneInfo 
+{
+	BoneInfo()
+		:Name(NULL),
+		SelfIndex(-1),
+		ParentIndex(-1),
+		Flag(0),
+		StartIndex(-1)
+	{
+
+	}
+	MCHAR* Name;
+	int SelfIndex;
+	int ParentIndex;
+	int Flag;
+	int StartIndex;
+};
+
+
 
 class md5animExporter : public SceneExport {
 	public:
@@ -38,6 +104,165 @@ class md5animExporter : public SceneExport {
 		//Constructor/Destructor
 		md5animExporter();
 		~md5animExporter();		
+public:
+	int _FrameCount;
+	int _BoneCount;
+	int _FrameRate;
+	int _AnimatedCount;
+
+	FILE* _OutFile;
+
+	IGameScene * pIgame;
+
+	vector<BoneInfo> _BoneList;
+
+	int SaveMd5Anim( ExpInterface * ei, Interface * gi ) 
+	{
+		fprintf(_OutFile,"MD5Version 4843\r\ncommandline \"by HoneyCat md5animExporter v%d\"\r\n\r\n",Version());
+
+		DumpCount(gi);
+
+		DumpHierarchy();
+
+		fflush(_OutFile);
+		return TRUE;
+	}
+
+	void DumpCount(Interface * gi) 
+	{
+		Interval animation=gi->GetAnimRange();
+		_FrameCount=(animation.End()-animation.Start())/GetTicksPerFrame();
+		_BoneCount=0;
+		_FrameRate=GetFrameRate();
+		_AnimatedCount=0;
+
+		for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
+		{
+			IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
+			CountNodes(pGameNode);
+		}
+
+		fprintf(_OutFile,"numFrames %d\r\n",_FrameCount);
+		fprintf(_OutFile,"numJoints %d\r\n",_BoneCount);
+		fprintf(_OutFile,"frameRate %d\r\n",_FrameRate);
+		fprintf(_OutFile,"numAnimatedComponents %d\r\n\r\n",_AnimatedCount);
+	}
+
+	void CountNodes( IGameNode * pGameNode ,int ParentIndex=-1) 
+	{
+		int index=(int)_BoneList.size();
+		IGameObject * obj = pGameNode->GetIGameObject();
+		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+		{
+			_BoneCount++;
+
+			BoneInfo bone;
+			bone.Name=pGameNode->GetName();
+			bone.SelfIndex=(int)_BoneList.size();
+			bone.ParentIndex=ParentIndex;
+
+			CountAnimated(pGameNode,obj,bone);
+
+			_BoneList.push_back(bone);
+		}
+		
+		//fprintf(_OutFile,"%s %d\n",pGameNode->GetName(),obj->GetIGameType());
+		pGameNode->ReleaseIGameObject();
+
+		for(int i=0;i<pGameNode->GetChildCount();i++)
+		{
+			IGameNode * child = pGameNode->GetNodeChild(i);
+
+			CountNodes(child,index);
+		}
+	}
+
+	void CountAnimated(IGameNode * pGameNode,IGameObject * obj,BoneInfo & bone) 
+	{
+		GMatrix mat=obj->GetIGameObjectTM();
+		Point3 nodePos=mat.Translation();
+		Quat nodeRot=mat.Rotation();
+
+		bone.StartIndex=_AnimatedCount;
+
+		IGameKeyTab posKeys,rotKeys;
+		IGameControl * pGC = pGameNode->GetIGameControl();
+		int flag=0;
+		if (pGC->GetFullSampledKeys(posKeys,_FrameRate,IGAME_POS))
+		{
+			for(int i = 0;i<posKeys.Count();i++)
+			{
+				Point3& pos=posKeys[i].sampleKey.pval;
+				if (abs(pos.x-nodePos.x)>1E-6f)
+				{
+					flag|=eHierarchyFlag_Pos_X;
+				}
+				if (abs(pos.y-nodePos.y)>1E-6f)
+				{
+					flag|=eHierarchyFlag_Pos_Y;
+				}
+				if (abs(pos.z-nodePos.z)>1E-6f)
+				{
+					flag|=eHierarchyFlag_Pos_Z;
+				}
+			}
+		}
+		if (pGC->GetFullSampledKeys(rotKeys,_FrameRate,IGAME_ROT))
+		{
+			for(int i = 0;i<rotKeys.Count();i++)
+			{
+				Quat& rot=rotKeys[i].sampleKey.qval;
+				if (abs(rot.x-nodeRot.x)>1E-6f)
+				{
+					flag|=eHierarchyFlag_Rot_X;
+				}
+				if (abs(rot.y-nodeRot.y)>1E-6f)
+				{
+					flag|=eHierarchyFlag_Rot_Y;
+				}
+				if (abs(rot.z-nodeRot.z)>1E-6f)
+				{
+					flag|=eHierarchyFlag_Rot_Z;
+				}
+			}
+		}
+
+		if (flag&eHierarchyFlag_Pos_X)
+			_AnimatedCount++;
+		if (flag&eHierarchyFlag_Pos_Y)
+			_AnimatedCount++;
+		if (flag&eHierarchyFlag_Pos_Z)
+			_AnimatedCount++;
+
+		if (flag&eHierarchyFlag_Rot_X)
+			_AnimatedCount++;
+		if (flag&eHierarchyFlag_Rot_Y)
+			_AnimatedCount++;
+		if (flag&eHierarchyFlag_Rot_Z)
+			_AnimatedCount++;
+
+		bone.Flag=flag;
+	}
+
+	void DumpHierarchy() 
+	{
+		fprintf(_OutFile,"hierarchy {\r\n");
+		for(int i = 0; i <_BoneCount;i++)
+		{
+			BoneInfo& info=_BoneList.at(i);
+			fprintf(_OutFile,"\t\"%s\" %d %d %d\r\n",info.Name,info.ParentIndex,info.Flag,info.StartIndex);
+		}
+		fprintf(_OutFile,"}\r\n\r\n");
+	}
+
+
+
+
+
+
+
+
 
 };
 
@@ -78,11 +303,23 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			CenterWindow(hWnd,GetParent(hWnd));
 			return TRUE;
 
+		case WM_COMMAND:
+			switch(LOWORD(wParam)) {
+			case IDC_OK:
+				EndDialog(hWnd, 1);
+				return TRUE;
+			case IDC_CANCEL:
+				EndDialog(hWnd, 0);
+				return TRUE;
+			default:
+				break;
+			}
+
 		case WM_CLOSE:
 			EndDialog(hWnd, 0);
-			return 1;
+			return TRUE;
 	}
-	return 0;
+	return FALSE;
 }
 
 
@@ -99,37 +336,37 @@ md5animExporter::~md5animExporter()
 
 int md5animExporter::ExtCount()
 {
-	#pragma message(TODO("Returns the number of file name extensions supported by the plug-in."))
+	//#pragma message(TODO("Returns the number of file name extensions supported by the plug-in."))
 	return 1;
 }
 
 const TCHAR *md5animExporter::Ext(int n)
 {		
-	#pragma message(TODO("Return the 'i-th' file name extension (i.e. \"3DS\")."))
+	//#pragma message(TODO("Return the 'i-th' file name extension (i.e. \"3DS\")."))
 	return _T("md5anim");
 }
 
 const TCHAR *md5animExporter::LongDesc()
 {
-	#pragma message(TODO("Return long ASCII description (i.e. \"Targa 2.0 Image File\")"))
+	//#pragma message(TODO("Return long ASCII description (i.e. \"Targa 2.0 Image File\")"))
 	return _T("MD5 Anim file");
 }
 	
 const TCHAR *md5animExporter::ShortDesc() 
 {			
-	#pragma message(TODO("Return short ASCII description (i.e. \"Targa\")"))
+	//#pragma message(TODO("Return short ASCII description (i.e. \"Targa\")"))
 	return _T("MD5 Anim");
 }
 
 const TCHAR *md5animExporter::AuthorName()
 {			
-	#pragma message(TODO("Return ASCII Author name"))
+	//#pragma message(TODO("Return ASCII Author name"))
 	return _T("HoneyCat");
 }
 
 const TCHAR *md5animExporter::CopyrightMessage() 
 {	
-	#pragma message(TODO("Return ASCII Copyright message"))
+	//#pragma message(TODO("Return ASCII Copyright message"))
 	return _T("Copyright (C) 2013 HoneyCat. All rights reserved.");
 }
 
@@ -147,7 +384,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 
 unsigned int md5animExporter::Version()
 {				
-	#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
+	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
 	return 100;
 }
 
@@ -158,23 +395,49 @@ void md5animExporter::ShowAbout(HWND hWnd)
 
 BOOL md5animExporter::SupportsOptions(int ext, DWORD options)
 {
-	#pragma message(TODO("Decide which options to support.  Simply return true for each option supported by each Extension the exporter supports."))
+	//#pragma message(TODO("Decide which options to support.  Simply return true for each option supported by each Extension the exporter supports."))
 	return TRUE;
 }
 
 
 int	md5animExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, BOOL suppressPrompts, DWORD options)
 {
-	#pragma message(TODO("Implement the actual file Export here and"))
+	//#pragma message(TODO("Implement the actual file Export here and"))
 
+	int result=TRUE;
 	if(!suppressPrompts)
-		DialogBoxParam(hInstance, 
-				MAKEINTRESOURCE(IDD_PANEL), 
-				GetActiveWindow(), 
-				md5animExporterOptionsDlgProc, (LPARAM)this);
+	{
 
-	#pragma message(TODO("return TRUE If the file is exported properly"))
-	return FALSE;
+		result =DialogBoxParam(hInstance, 
+			MAKEINTRESOURCE(IDD_PANEL), 
+			GetActiveWindow(), 
+			md5animExporterOptionsDlgProc, (LPARAM)this);
+		if (result>0)
+		{
+			MyErrorProc pErrorProc;
+			SetErrorCallBack(&pErrorProc);
+
+			pIgame=GetIGameInterface();
+
+			IGameConversionManager * cm = GetConversionManager();
+			cm->SetCoordSystem(IGameConversionManager::IGAME_MAX);
+			pIgame->InitialiseIGame();
+			pIgame->SetStaticFrame(0);
+
+			SimpleFile outFile(name,"wb");
+			_OutFile=outFile.File();
+
+			result=SaveMd5Anim(ei,i);
+
+			MessageBox( GetActiveWindow(), name, _T("md5anim finish"), 0 );
+
+			pIgame->ReleaseIGame();
+			_OutFile=NULL;
+		}
+		else
+			result=TRUE;
+	}
+	return result;
 }
 
 
