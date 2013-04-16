@@ -167,6 +167,7 @@ class md5meshExporter : public SceneExport {
 		md5meshExporter();
 		~md5meshExporter();		
 public:
+	TimeValue _TvToDump;
 	BOOL _CopyImages;
 	BOOL _Compress;
 	bool _TargetExport;
@@ -199,7 +200,7 @@ public:
 		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
 			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
 		{
-			GMatrix mat=obj->GetIGameObjectTM();
+			GMatrix mat=pGameNode->GetWorldTM(_TvToDump);
 			Point3 pos=mat.Translation();
 			Quat quat=mat.Rotation();
 			if (quat.w<0)
@@ -279,7 +280,7 @@ public:
 						if (gMod->IsSkin())
 						{
 							fprintf(_OutFile,"//node %s %d %d\r\n",pGameNode->GetName(),gM->GetNumberOfTexVerts (),gM->GetNumberOfVerts());
-							DumpSubMesh(((IGameSkin*)gMod)->GetInitialPose(),(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
+							DumpSubMesh(gM,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
 							break;;
 						}
 					}
@@ -553,10 +554,9 @@ public:
 			weights[u].Value/=totalWeight;
 
 			GMatrix initMat;
-			if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
+			//if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
 			{
-				IGameControl * pGC=weights[u].Bone->GetIGameControl();
-				initMat=weights[u].Bone->GetIGameObject()->GetIGameObjectTM();
+				initMat=weights[u].Bone->GetWorldTM(_TvToDump);
 			}
 
 			initMat=initMat.Inverse();
@@ -748,6 +748,8 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 			pIgame->InitialiseIGame();
 			pIgame->SetStaticFrame(0);
 
+			_TvToDump=0;
+
 			SimpleFile outFile(name,"wb");
 			_OutFile=outFile.File();
 
@@ -797,7 +799,7 @@ void md5meshExporter::DumpCount()
 
 	}
 
-	fprintf(_OutFile,"numJoints %d\r\n",_BoneCount);
+	fprintf(_OutFile,"numJoints %d\r\n",_BoneCount+1);
 	fprintf(_OutFile,"numMeshes %d\r\n",_MeshCount);
 	fprintf(_OutFile,"numObjects %d\r\n",_ObjCount);
 	fprintf(_OutFile,"numMaterials %d\r\n\r\n",_MtlCount);
@@ -836,12 +838,16 @@ void md5meshExporter::CountNodes( IGameNode * pGameNode )
 void md5meshExporter::DumpBones() 
 {
 	fprintf(_OutFile,"joints {\r\n");
+
+	fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n","origin",-1,
+		0.f,0.f,0.f,0.f,0.f,0.f);
+
 	for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 	{
 		IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
 		
-		int index=0;
-		DumpJoint(pGameNode,index);
+		int index=1;
+		DumpJoint(pGameNode,index,0);
 	}
 	fprintf(_OutFile,"}\r\n\r\n");
 }
