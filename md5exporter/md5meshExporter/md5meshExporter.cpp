@@ -189,7 +189,7 @@ public:
 
 	void	DumpCount();
 
-	void	CountNodes( IGameNode * pGameNode ) ;
+	void	CountNodes( IGameNode * pGameNode,BOOL isBoneChild=FALSE ) ;
 
 	void	DumpBones();
 
@@ -280,7 +280,7 @@ public:
 						if (gMod->IsSkin())
 						{
 							fprintf(_OutFile,"//node %s %d %d\r\n",pGameNode->GetName(),gM->GetNumberOfTexVerts (),gM->GetNumberOfVerts());
-							DumpSubMesh(gM,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
+							DumpSubMesh(((IGameSkin*)gMod)->GetInitialPose(),(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
 							break;;
 						}
 					}
@@ -554,7 +554,7 @@ public:
 			weights[u].Value/=totalWeight;
 
 			GMatrix initMat;
-			//if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
+			if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
 			{
 				initMat=weights[u].Bone->GetWorldTM(_TvToDump);
 			}
@@ -805,16 +805,18 @@ void md5meshExporter::DumpCount()
 	fprintf(_OutFile,"numMaterials %d\r\n\r\n",_MtlCount);
 }
 
-void md5meshExporter::CountNodes( IGameNode * pGameNode )
+void md5meshExporter::CountNodes( IGameNode * pGameNode,BOOL isBoneChild )
 {
 	IGameObject * obj = pGameNode->GetIGameObject();
 	if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
 		obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
 	{
 		_BoneCount++;
+		isBoneChild=TRUE;
 	}
 	else if (!pGameNode->IsNodeHidden()&&
-		obj->GetIGameType()==IGameObject::IGAME_MESH)
+		obj->GetIGameType()==IGameObject::IGAME_MESH&&
+		!isBoneChild)
 	{
 		_ObjCount++;
 
@@ -831,7 +833,7 @@ void md5meshExporter::CountNodes( IGameNode * pGameNode )
 	{
 		IGameNode * child = pGameNode->GetNodeChild(i);
 
-		CountNodes(child);
+		CountNodes(child,isBoneChild);
 	}
 }
 
