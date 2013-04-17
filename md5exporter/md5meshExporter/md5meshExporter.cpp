@@ -724,7 +724,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 100;
+	return 101;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
