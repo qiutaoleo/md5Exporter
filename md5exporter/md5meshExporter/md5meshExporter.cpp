@@ -23,6 +23,7 @@
 #include <iostream>
 #include <hash_map>
 #include <map>
+#include <hash_set>
 using namespace std;
 
 /************************************************************************/
@@ -171,6 +172,10 @@ public:
 	TimeValue _TvToDump;
 	BOOL _CopyImages;
 	BOOL _Compress;
+	
+	BOOL _LimitBoneNumPerMesh;
+	int _MaxBonePerMesh;
+
 	bool _TargetExport;
 
 	FILE* _OutFile;
@@ -318,14 +323,7 @@ public:
 		for (hash_map<MCHAR*,vector<FaceEx *> >::iterator it=sameMatMap.begin();
 			it!=sameMatMap.end();++it)
 		{
-			fprintf(_OutFile,"mesh {\r\n");
-			fprintf(_OutFile,"\t// meshes: %s\r\n",pGameNode->GetName());
-			fprintf(_OutFile,"\tmeshindex %d\r\n\r\n",_MeshCount++);
-			fprintf(_OutFile,"\tshader \"%s\"\r\n\r\n",it->first);
-
-			DumpVertex(gM,it->second,gSkin);
-			
-			fprintf(_OutFile,"}\r\n\r\n");
+			DumpFaces(gM,it->second,gSkin,pGameNode,it->first);
 		}
 	}
 
@@ -338,6 +336,8 @@ public:
 			Tab<int> matIDs=gM->GetActiveMatIDs();
 			int matCount=matIDs.Count();
 
+			hash_map<MCHAR*,vector<FaceEx *> > sameMatMap;
+
 			int tmpMatCount=_MtlCount;
 
 			for (int m=0;m<matCount;++m)
@@ -345,15 +345,47 @@ public:
 				Tab<FaceEx *> faces=gM->GetFacesFromMatID(m);
 				IGameMaterial * mat=gM->GetMaterialFromFace(faces[0]);
 				CoutMtl(mat);
+
+				if (_LimitBoneNumPerMesh)
+				{
+					vector<FaceEx *>& faceList=sameMatMap[mat->GetMaterialName()];
+					for (int f=0;f<faces.Count();++f)
+					{
+						faceList.push_back(faces[f]);
+					}
+				}
 			}
 
-			if (tmpMatCount<_MtlCount)
-				tmpMatCount=_MtlCount-tmpMatCount;
+			if (_LimitBoneNumPerMesh)
+			{
+				int numMod = obj->GetNumModifiers();
+				if(numMod > 0)
+				{
+					for(int i=0;i<numMod;i++)
+					{
+						IGameModifier * gMod = obj->GetIGameModifier(i);
+						if (gMod->IsSkin())
+						{
+							for (hash_map<MCHAR*,vector<FaceEx *> >::iterator it=sameMatMap.begin();
+								it!=sameMatMap.end();++it)
+							{
+								SplitMesh(((IGameSkin*)gMod)->GetInitialPose(),it->second,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
+							}
+							break;;
+						}
+					}
+				}
+			}
 			else
-				tmpMatCount=1;
+			{
+				if (tmpMatCount<_MtlCount)
+					tmpMatCount=_MtlCount-tmpMatCount;
+				else
+					tmpMatCount=1;
+				_MeshCount+=tmpMatCount;
+			}
 
-			_MeshCount+=tmpMatCount;
-			_ObjInfoList.at(_ObjCount-1).MeshCount=tmpMatCount;
+			_ObjInfoList.at(_ObjCount-1).MeshCount=_MeshCount-_ObjInfoList.at(_ObjCount-1).StartMesh;
 		}
 		else
 		{
@@ -374,14 +406,19 @@ public:
 		return _T("");
 	}
 
-	void DumpVertex( IGameMesh * gM,vector<FaceEx *>& faces, IGameSkin* gSkin) 
+	void DumpFaces( IGameMesh * gM,vector<FaceEx *>& faces, IGameSkin* gSkin,IGameNode* pGameNode,MCHAR* matName) 
 	{
 		vector<VertexInfo> vertList;
 		vector<TriInfo> triList;
+		hash_set<MCHAR*> sameBoneMap;
+		int oldBoneNum=0;
 		int faceCount=(int)faces.size();
 		int weightIndex=0;
+		int usedFaceNum=0;
 		for (int f=0;f<faceCount;++f)
 		{
+			oldBoneNum=(int)sameBoneMap.size();
+
 			TriInfo tri;
 			for (int i=0;i<3;++i)
 			{
@@ -405,11 +442,11 @@ public:
 						{
 							VertexUV(info, gM);
 
-							//if (info.UV.Equals(curinfo.UV))
-							//{
-							//	tri.Index[i]=v;
-							//	break;
-							//}
+							if (info.UV.Equals(curinfo.UV))
+							{
+								tri.Index[i]=v;
+								break;
+							}
 
 							info.WeightIndex=curinfo.WeightIndex;
 							info.WeightCount=curinfo.WeightCount;
@@ -460,10 +497,43 @@ public:
 					vertList.push_back(info);
 
 					tri.Index[i]=(int)vertList.size()-1;
+
+					for (int i=0;i<(int)info.Weights.size();++i)
+					{
+						sameBoneMap.insert(info.Weights.at(i).Bone->GetName());
+					}
 				}
 			}
 			triList.push_back(tri);
+
+			if (_LimitBoneNumPerMesh)
+			{
+				usedFaceNum++;
+				if (oldBoneNum<_MaxBonePerMesh&&
+					(int)sameBoneMap.size()>=_MaxBonePerMesh)
+				{
+					DumpVertex(pGameNode,matName,vertList, usedFaceNum, triList, weightIndex, (int)sameBoneMap.size());
+					sameBoneMap.clear();
+					vertList.clear();
+					triList.clear();
+					weightIndex=0;
+					usedFaceNum=0;
+				}
+			}
 		}
+		if (_LimitBoneNumPerMesh)
+			faceCount=usedFaceNum;
+		if ((int)sameBoneMap.size()>0)
+			DumpVertex(pGameNode,matName,vertList, faceCount, triList, weightIndex, (int)sameBoneMap.size());
+	}
+
+	void DumpVertex(IGameNode* pGameNode,MCHAR* matName, vector<VertexInfo> &vertList, int faceCount,
+		vector<TriInfo> &triList, int weightIndex,int boneNum) 
+	{
+		fprintf(_OutFile,"mesh {\r\n");
+		fprintf(_OutFile,"\t// meshes: %s\r\n",pGameNode->GetName());
+		fprintf(_OutFile,"\tmeshindex %d\r\n\r\n",_MeshCount++);
+		fprintf(_OutFile,"\tshader \"%s\"\r\n\r\n",matName);
 
 		fprintf(_OutFile,"\tnumverts %d\r\n",vertList.size());
 
@@ -489,7 +559,7 @@ public:
 				tri.Index[2],
 				tri.Index[1]);
 		}
-		
+
 		fprintf(_OutFile,"\r\n\tnumweights %d\r\n",weightIndex);
 
 		for (int v=0;v<vertCount;++v)
@@ -509,8 +579,11 @@ public:
 					weight.Offset.z);
 			}
 		}
+		fprintf(_OutFile,"\r\n\t//bones %d\r\n",boneNum);
 
+		fprintf(_OutFile,"}\r\n\r\n");
 	}
+
 
 	void VertexPos( IGameMesh * gM, VertexInfo &info ) 
 	{
@@ -581,6 +654,66 @@ public:
 		}
 	}
 
+	void SplitMesh( IGameMesh * gM, vector<FaceEx *>& faces, IGameSkin* gSkin ) 
+	{
+		hash_set<IGameNode*> boneMap;
+		int meshBone=0;
+		int faceCount=(int)faces.size();
+		for (int f=0;f<faceCount;++f)
+		{
+			meshBone=(int)boneMap.size();
+			for (int i=0;i<3;++i)
+			{
+				int weightCount=gSkin->GetNumberOfBones(faces[f]->vert[i]);
+				WeightInfo weights[VERT_MAX_BONES]={WeightInfo()};
+
+				for (int b=0;b<weightCount;++b)
+				{
+					float curWeight=gSkin->GetWeight(faces[f]->vert[i],b);
+
+					if (b<VERT_MAX_BONES)
+					{
+						weights[b].Value=curWeight;
+						weights[b].Bone=gSkin->GetIGameBone(faces[f]->vert[i],b);
+					}
+					else 
+					{
+						for (int u=0;u<VERT_MAX_BONES;++u)
+						{
+							if (weights[u].Value<curWeight)
+							{
+								weights[u].Value=curWeight;
+								weights[u].Bone=gSkin->GetIGameBone(faces[f]->vert[i],b);
+								break;
+							}
+						}
+					}
+				}
+
+				if (weightCount>VERT_MAX_BONES)
+					weightCount=VERT_MAX_BONES;
+				
+				for (int u=0;u<weightCount;++u)
+				{
+					boneMap.insert(weights[u].Bone);
+				}
+			}
+			
+			if (meshBone<_MaxBonePerMesh&&
+				(int)boneMap.size()>=_MaxBonePerMesh)
+			{
+				_MeshCount++;
+				boneMap.clear();
+			}
+		}
+		if ((int)boneMap.size()>0)
+		{
+			_MeshCount++;
+		}
+	}
+
+
+
 
 
 
@@ -634,6 +767,8 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			imp = (md5meshExporter *)lParam;
 			CenterWindow(hWnd,GetParent(hWnd));
 
+			CheckDlgButton(hWnd, IDC_CHECK_LIMITBONENUMPERMESH, imp->_LimitBoneNumPerMesh);
+			SetDlgItemInt(hWnd,IDC_EDIT_LIMITBONENUMPERMESH,imp->_MaxBonePerMesh,FALSE);
 			CheckDlgButton(hWnd, IDC_COPY_IMAGES, imp->_CopyImages);
 			CheckDlgButton(hWnd, IDC_COMPRESS, imp->_Compress);
 			return TRUE;
@@ -641,12 +776,18 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 		case WM_COMMAND:
 			switch(LOWORD(wParam)) {
 			case IDC_OK:
+				imp->_MaxBonePerMesh=GetDlgItemInt(hWnd,IDC_EDIT_LIMITBONENUMPERMESH,NULL,FALSE);
+				imp->_LimitBoneNumPerMesh = IsDlgButtonChecked(hWnd, IDC_CHECK_LIMITBONENUMPERMESH);
 				imp->_CopyImages = IsDlgButtonChecked(hWnd, IDC_COPY_IMAGES);
 				imp->_Compress = IsDlgButtonChecked(hWnd, IDC_COMPRESS);
 				EndDialog(hWnd, 1);
 				return TRUE;
 			case IDC_CANCEL:
 				EndDialog(hWnd, 0);
+				return TRUE;
+			case IDC_CHECK_LIMITBONENUMPERMESH:
+				return TRUE;
+			case IDC_EDIT_LIMITBONENUMPERMESH:
 				return TRUE;
 			default:
 				break;
@@ -663,7 +804,9 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 md5meshExporter::md5meshExporter()
 	:
 _CopyImages(FALSE),
-_Compress(FALSE)
+_Compress(FALSE),
+_LimitBoneNumPerMesh(FALSE),
+_MaxBonePerMesh(32)
 {
 
 }
@@ -724,7 +867,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 101;
+	return 110;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
