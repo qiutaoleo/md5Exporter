@@ -594,8 +594,8 @@ public:
 	void VertexUV( VertexInfo &info, IGameMesh * gM ) 
 	{
 		info.UV=gM->GetTexVertex(info.TexCoordIndex);
-		if (info.UV.x>=1.f)
-			info.UV.x-=1.f;
+		if (info.UV.x>1.f)
+			info.UV.x=1.f;
 		if (info.UV.y<0.f)
 			info.UV.y=-info.UV.y;
 		else
@@ -805,8 +805,8 @@ md5meshExporter::md5meshExporter()
 	:
 _CopyImages(FALSE),
 _Compress(FALSE),
-_LimitBoneNumPerMesh(FALSE),
-_MaxBonePerMesh(32)
+_LimitBoneNumPerMesh(TRUE),
+_MaxBonePerMesh(36)
 {
 
 }
@@ -867,7 +867,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 110;
+	return 111;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
