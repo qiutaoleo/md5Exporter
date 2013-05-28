@@ -311,7 +311,7 @@ public:
 
 		for (int m=0;m<matCount;++m)
 		{
-			Tab<FaceEx *> faces=gM->GetFacesFromMatID(m);
+			Tab<FaceEx *> faces=gM->GetFacesFromMatID(matIDs[m]);
 			IGameMaterial * mat=gM->GetMaterialFromFace(faces[0]);
 			vector<FaceEx *>& faceList=sameMatMap[mat->GetMaterialName()];
 			for (int f=0;f<faces.Count();++f)
@@ -342,7 +342,7 @@ public:
 
 			for (int m=0;m<matCount;++m)
 			{
-				Tab<FaceEx *> faces=gM->GetFacesFromMatID(m);
+				Tab<FaceEx *> faces=gM->GetFacesFromMatID(matIDs[m]);
 				IGameMaterial * mat=gM->GetMaterialFromFace(faces[0]);
 				CoutMtl(mat);
 
@@ -867,7 +867,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 111;
+	return 112;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -885,15 +885,14 @@ BOOL md5meshExporter::SupportsOptions(int ext, DWORD options)
 int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, BOOL suppressPrompts, DWORD options)
 {
 	//#pragma message(TODO("Implement the actual file Export here and"))
-
 	int result=TRUE;
 	if(!suppressPrompts)
 	{
 
 		result =DialogBoxParam(hInstance, 
-				MAKEINTRESOURCE(IDD_PANEL), 
-				GetActiveWindow(), 
-				md5meshExporterOptionsDlgProc, (LPARAM)this);
+			MAKEINTRESOURCE(IDD_PANEL), 
+			GetActiveWindow(), 
+			md5meshExporterOptionsDlgProc, (LPARAM)this);
 		if (result>0)
 		{
 			MyErrorProc pErrorProc;
