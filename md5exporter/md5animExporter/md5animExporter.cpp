@@ -115,6 +115,8 @@ public:
 	int _FrameRate;
 	int _AnimatedCount;
 
+	BOOL _IncludeBounds;
+
 	FILE* _OutFile;
 
 	IGameScene * pIgame;
@@ -129,7 +131,8 @@ public:
 
 		DumpHierarchy();
 
-		DumpBounds();
+		if (_IncludeBounds)
+			DumpBounds();
 
 		DumpBaseFrame();
 
@@ -529,15 +532,20 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 		case WM_INITDIALOG:
 			imp = (md5animExporter *)lParam;
 			CenterWindow(hWnd,GetParent(hWnd));
+
+			CheckDlgButton(hWnd,IDC_CHECK_INCLUDEBOUNDS,imp->_IncludeBounds);
 			return TRUE;
 
 		case WM_COMMAND:
 			switch(LOWORD(wParam)) {
 			case IDC_OK:
+				imp->_IncludeBounds = IsDlgButtonChecked(hWnd, IDC_CHECK_INCLUDEBOUNDS);
 				EndDialog(hWnd, 1);
 				return TRUE;
 			case IDC_CANCEL:
 				EndDialog(hWnd, 0);
+				return TRUE;
+			case IDC_CHECK_INCLUDEBOUNDS:
 				return TRUE;
 			default:
 				break;
@@ -553,6 +561,7 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 
 //--- md5animExporter -------------------------------------------------------
 md5animExporter::md5animExporter()
+	:_IncludeBounds(FALSE)
 {
 
 }
@@ -613,7 +622,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 100;
+	return 110;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)

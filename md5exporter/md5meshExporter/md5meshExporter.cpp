@@ -175,6 +175,7 @@ public:
 	
 	BOOL _LimitBoneNumPerMesh;
 	int _MaxBonePerMesh;
+	BOOL _DoomVersion;
 
 	bool _TargetExport;
 
@@ -532,7 +533,10 @@ public:
 	{
 		fprintf(_OutFile,"mesh {\r\n");
 		fprintf(_OutFile,"\t// meshes: %s\r\n",pGameNode->GetName());
-		fprintf(_OutFile,"\tmeshindex %d\r\n\r\n",_MeshCount++);
+		if (!_DoomVersion)
+		{
+			fprintf(_OutFile,"\tmeshindex %d\r\n\r\n",_MeshCount++);
+		}
 		fprintf(_OutFile,"\tshader \"%s\"\r\n\r\n",matName);
 
 		fprintf(_OutFile,"\tnumverts %d\r\n",vertList.size());
@@ -769,6 +773,7 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 
 			CheckDlgButton(hWnd, IDC_CHECK_LIMITBONENUMPERMESH, imp->_LimitBoneNumPerMesh);
 			SetDlgItemInt(hWnd,IDC_EDIT_LIMITBONENUMPERMESH,imp->_MaxBonePerMesh,FALSE);
+			CheckDlgButton(hWnd,IDC_DOMM_VERSION,imp->_DoomVersion);
 			CheckDlgButton(hWnd, IDC_COPY_IMAGES, imp->_CopyImages);
 			CheckDlgButton(hWnd, IDC_COMPRESS, imp->_Compress);
 			return TRUE;
@@ -778,6 +783,7 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			case IDC_OK:
 				imp->_MaxBonePerMesh=GetDlgItemInt(hWnd,IDC_EDIT_LIMITBONENUMPERMESH,NULL,FALSE);
 				imp->_LimitBoneNumPerMesh = IsDlgButtonChecked(hWnd, IDC_CHECK_LIMITBONENUMPERMESH);
+				imp->_DoomVersion = IsDlgButtonChecked(hWnd, IDC_DOMM_VERSION);
 				imp->_CopyImages = IsDlgButtonChecked(hWnd, IDC_COPY_IMAGES);
 				imp->_Compress = IsDlgButtonChecked(hWnd, IDC_COMPRESS);
 				EndDialog(hWnd, 1);
@@ -788,6 +794,8 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			case IDC_CHECK_LIMITBONENUMPERMESH:
 				return TRUE;
 			case IDC_EDIT_LIMITBONENUMPERMESH:
+				return TRUE;
+			case IDC_DOMM_VERSION:
 				return TRUE;
 			default:
 				break;
@@ -806,7 +814,8 @@ md5meshExporter::md5meshExporter()
 _CopyImages(FALSE),
 _Compress(FALSE),
 _LimitBoneNumPerMesh(TRUE),
-_MaxBonePerMesh(36)
+_MaxBonePerMesh(36),
+_DoomVersion(FALSE)
 {
 
 }
@@ -867,7 +876,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 112;
+	return 120;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -926,15 +935,21 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 
 int md5meshExporter::SaveMd5Mesh( ExpInterface *ei, Interface *gi )
 {
-	fprintf(_OutFile,"MD5Version 4843\r\ncommandline \"by HoneyCat md5meshExporter v%d\"\r\n\r\n",Version());
+	if (!_DoomVersion)
+		fprintf(_OutFile,"MD5Version 4843\r\ncommandline \"by HoneyCat md5meshExporter v%d\"\r\n\r\n",Version());
+	else
+		fprintf(_OutFile,"MD5Version 10\r\ncommandline \"by HoneyCat md5meshExporter v%d\"\r\n\r\n",Version());
 
 	DumpCount();
 
 	DumpBones();
 
-	DumpObjects();
+	if (!_DoomVersion)
+	{
+		DumpObjects();
 
-	DumpMaterials();
+		DumpMaterials();
+	}
 
 	DumpMeshes();
 
@@ -959,8 +974,11 @@ void md5meshExporter::DumpCount()
 
 	fprintf(_OutFile,"numJoints %d\r\n",_BoneCount+1);
 	fprintf(_OutFile,"numMeshes %d\r\n",_MeshCount);
-	fprintf(_OutFile,"numObjects %d\r\n",_ObjCount);
-	fprintf(_OutFile,"numMaterials %d\r\n\r\n",_MtlCount);
+	if (!_DoomVersion)
+	{
+		fprintf(_OutFile,"numObjects %d\r\n",_ObjCount);
+		fprintf(_OutFile,"numMaterials %d\r\n\r\n",_MtlCount);
+	}
 }
 
 void md5meshExporter::CountNodes( IGameNode * pGameNode,BOOL isBoneChild )
