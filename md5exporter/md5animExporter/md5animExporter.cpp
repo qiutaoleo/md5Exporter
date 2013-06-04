@@ -116,6 +116,7 @@ public:
 	int _AnimatedCount;
 
 	BOOL _IncludeBounds;
+	BOOL _HelperObject;
 
 	FILE* _OutFile;
 
@@ -178,8 +179,9 @@ public:
 	{
 		int index=(int)_BoneList.size();
 		IGameObject * obj = pGameNode->GetIGameObject();
-		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
-			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+		if ((obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			(_HelperObject||obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID))||
+			(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 		{
 			_BoneCount++;
 
@@ -385,8 +387,9 @@ public:
 	void DumpPosRot( IGameNode * pGameNode,TimeValue tv,int& nodeIndex ) 
 	{
 		IGameObject * obj = pGameNode->GetIGameObject();
-		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
-			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+		if ((obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			(_HelperObject||obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID))||
+			(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 		{
 			INode* maxNode=pGameNode->GetMaxNode();
 			const ObjectState& objState=maxNode->EvalWorldState(tv);
@@ -534,18 +537,22 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			CenterWindow(hWnd,GetParent(hWnd));
 
 			CheckDlgButton(hWnd,IDC_CHECK_INCLUDEBOUNDS,imp->_IncludeBounds);
+			CheckDlgButton(hWnd,IDC_CHECK_HELPER_OBJECT,imp->_HelperObject);
 			return TRUE;
 
 		case WM_COMMAND:
 			switch(LOWORD(wParam)) {
 			case IDC_OK:
 				imp->_IncludeBounds = IsDlgButtonChecked(hWnd, IDC_CHECK_INCLUDEBOUNDS);
+				imp->_HelperObject = IsDlgButtonChecked(hWnd, IDC_CHECK_HELPER_OBJECT);
 				EndDialog(hWnd, 1);
 				return TRUE;
 			case IDC_CANCEL:
 				EndDialog(hWnd, 0);
 				return TRUE;
 			case IDC_CHECK_INCLUDEBOUNDS:
+				return TRUE;
+			case IDC_CHECK_HELPER_OBJECT:
 				return TRUE;
 			default:
 				break;
@@ -561,7 +568,8 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 
 //--- md5animExporter -------------------------------------------------------
 md5animExporter::md5animExporter()
-	:_IncludeBounds(FALSE)
+	:_IncludeBounds(FALSE),
+	_HelperObject(FALSE)
 {
 
 }
@@ -622,7 +630,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 110;
+	return 111;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)

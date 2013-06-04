@@ -176,6 +176,7 @@ public:
 	BOOL _LimitBoneNumPerMesh;
 	int _MaxBonePerMesh;
 	BOOL _DoomVersion;
+	BOOL _HelperObject;
 
 	bool _TargetExport;
 
@@ -204,8 +205,9 @@ public:
 	{
 		int index=CurIndex;
 		IGameObject * obj = pGameNode->GetIGameObject();
-		if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
-			obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+		if ((obj->GetIGameType()==IGameObject::IGAME_BONE&&
+			(_HelperObject||obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID))||
+			(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 		{
 			GMatrix mat=pGameNode->GetWorldTM(_TvToDump);
 			Point3 pos=mat.Translation();
@@ -774,6 +776,8 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			CheckDlgButton(hWnd, IDC_CHECK_LIMITBONENUMPERMESH, imp->_LimitBoneNumPerMesh);
 			SetDlgItemInt(hWnd,IDC_EDIT_LIMITBONENUMPERMESH,imp->_MaxBonePerMesh,FALSE);
 			CheckDlgButton(hWnd,IDC_DOMM_VERSION,imp->_DoomVersion);
+			CheckDlgButton(hWnd,IDC_HELPER_OBJECT,imp->_HelperObject);
+
 			CheckDlgButton(hWnd, IDC_COPY_IMAGES, imp->_CopyImages);
 			CheckDlgButton(hWnd, IDC_COMPRESS, imp->_Compress);
 			return TRUE;
@@ -784,6 +788,8 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 				imp->_MaxBonePerMesh=GetDlgItemInt(hWnd,IDC_EDIT_LIMITBONENUMPERMESH,NULL,FALSE);
 				imp->_LimitBoneNumPerMesh = IsDlgButtonChecked(hWnd, IDC_CHECK_LIMITBONENUMPERMESH);
 				imp->_DoomVersion = IsDlgButtonChecked(hWnd, IDC_DOMM_VERSION);
+				imp->_HelperObject = IsDlgButtonChecked(hWnd, IDC_HELPER_OBJECT);
+
 				imp->_CopyImages = IsDlgButtonChecked(hWnd, IDC_COPY_IMAGES);
 				imp->_Compress = IsDlgButtonChecked(hWnd, IDC_COMPRESS);
 				EndDialog(hWnd, 1);
@@ -796,6 +802,8 @@ INT_PTR CALLBACK md5meshExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			case IDC_EDIT_LIMITBONENUMPERMESH:
 				return TRUE;
 			case IDC_DOMM_VERSION:
+				return TRUE;
+			case IDC_HELPER_OBJECT:
 				return TRUE;
 			default:
 				break;
@@ -815,7 +823,8 @@ _CopyImages(FALSE),
 _Compress(FALSE),
 _LimitBoneNumPerMesh(TRUE),
 _MaxBonePerMesh(36),
-_DoomVersion(FALSE)
+_DoomVersion(FALSE),
+_HelperObject(FALSE)
 {
 
 }
@@ -876,7 +885,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 120;
+	return 121;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -984,8 +993,9 @@ void md5meshExporter::DumpCount()
 void md5meshExporter::CountNodes( IGameNode * pGameNode,BOOL isBoneChild )
 {
 	IGameObject * obj = pGameNode->GetIGameObject();
-	if (obj->GetIGameType()==IGameObject::IGAME_BONE&&
-		obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID)
+	if ((obj->GetIGameType()==IGameObject::IGAME_BONE&&
+		(_HelperObject||obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID))||
+		(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 	{
 		_BoneCount++;
 		isBoneChild=TRUE;

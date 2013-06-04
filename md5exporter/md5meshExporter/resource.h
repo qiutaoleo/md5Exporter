@@ -18,8 +18,9 @@
 #define IDC_CHECK_LIMITBONENUMPERMESH   1005
 #define IDC_EDIT2                       1008
 #define IDC_EDIT_LIMITBONENUMPERMESH    1008
-#define IDC_CHECK1                      1009
 #define IDC_DOMM_VERSION                1009
+#define IDC_CHECK1                      1010
+#define IDC_HELPER_OBJECT               1010
 #define IDC_COLOR                       1456
 #define IDC_EDIT                        1490
 #define IDC_SPIN                        1496
@@ -30,7 +31,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        101
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1010
+#define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
