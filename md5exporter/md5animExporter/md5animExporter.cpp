@@ -69,8 +69,7 @@ struct BoneInfo
 		SelfIndex(-1),
 		ParentIndex(-1),
 		Flag(0),
-		StartIndex(-1),
-		isMirrored(FALSE)
+		StartIndex(-1)
 	{
 
 	}
@@ -81,7 +80,8 @@ struct BoneInfo
 	int StartIndex;
 	Point3 Pos;
 	Quat Rot;
-	BOOL isMirrored;
+	Point3 BasePos;
+	Quat BaseRot;
 };
 
 
@@ -213,18 +213,35 @@ public:
 		GMatrix mat=obj->GetIGameObjectTM();
 		Matrix3 objMat=mat.ExtractMatrix3();
 		objMat.NoScale();
-		bone.isMirrored=DotProd( CrossProd( objMat.GetRow(0).Normalize(), objMat.GetRow(1).Normalize() ).Normalize(), objMat.GetRow(2).Normalize() ) < 0;
 		
 		mat=pGameNode->GetLocalTM(_TvToDump);
-		//IGameNode* parent=pGameNode->GetNodeParent();
-		//if (parent)
-		//{
-		//	GMatrix parentMat=parent->GetIGameObject()->GetIGameObjectTM();
-		//	mat*=parentMat.Inverse();
-		//}
 
 		bone.Pos=mat.Translation();
 		bone.Rot=mat.Rotation();
+
+		INode* maxNode=pGameNode->GetMaxNode();
+		Matrix3 baseMat=maxNode->GetNodeTM(_TvToDump);
+		bone.BasePos=baseMat.GetTrans();
+		bone.BaseRot=baseMat;
+	}
+
+	bool AlmostEqual2sComplement(float A, float B, int maxUlps=1)
+	{
+		// Make sure maxUlps is non-negative and small enough that the
+		// default NAN won't compare as equal to anything.
+		assert(maxUlps > 0 && maxUlps < 4 * 1024 * 1024);
+		int aInt = *(int*)&A;
+		// Make aInt lexicographically ordered as a twos-complement int
+		if (aInt < 0)
+			aInt = 0x80000000 - aInt;
+		// Make bInt lexicographically ordered as a twos-complement int
+		int bInt = *(int*)&B;
+		if (bInt < 0)
+			bInt = 0x80000000 - bInt;
+		int intDiff = abs(aInt - bInt);
+		if (intDiff <= maxUlps)
+			return true;
+		return false;
 	}
 
 	void CountAnimated(IGameNode * pGameNode,IGameObject * obj,BoneInfo & bone) 
@@ -239,33 +256,32 @@ public:
 		for (TimeValue tv = start; tv <= end; tv += ticks)
 		{
 			INode* maxNode=pGameNode->GetMaxNode();
-			const ObjectState& objState=maxNode->EvalWorldState(tv);
 			Matrix3 mat=maxNode->GetNodeTM(tv);
 			Point3 pos=mat.GetTrans();
 			Quat rot(mat);
 
-			if (abs(pos.x-bone.Pos.x)>1E-6f)
+			if (!AlmostEqual2sComplement(pos.x,bone.BasePos.x))
 			{
 				flag|=eHierarchyFlag_Pos_X;
 			}
-			if (abs(pos.y-bone.Pos.y)>1E-6f)
+			if (!AlmostEqual2sComplement(pos.y,bone.BasePos.y))
 			{
 				flag|=eHierarchyFlag_Pos_Y;
 			}
-			if (abs(pos.z-bone.Pos.z)>1E-6f)
+			if (!AlmostEqual2sComplement(pos.z,bone.BasePos.z))
 			{
 				flag|=eHierarchyFlag_Pos_Z;
 			}
 
-			if (abs(rot.x-bone.Rot.x)>1E-6f)
+			if (!AlmostEqual2sComplement(rot.x,bone.BaseRot.x))
 			{
 				flag|=eHierarchyFlag_Rot_X;
 			}
-			if (abs(rot.y-bone.Rot.y)>1E-6f)
+			if (!AlmostEqual2sComplement(rot.y,bone.BaseRot.y))
 			{
 				flag|=eHierarchyFlag_Rot_Y;
 			}
-			if (abs(rot.z-bone.Rot.z)>1E-6f)
+			if (!AlmostEqual2sComplement(rot.z,bone.BaseRot.z))
 			{
 				flag|=eHierarchyFlag_Rot_Z;
 			}
@@ -372,10 +388,11 @@ public:
 			int frameNum=tv/ticks;
 			fprintf(_OutFile,"frame %d {\r\n",frameNum);
 
+			int index=1;
 			for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 			{
 				IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
-				int index=1;
+
 				DumpPosRot(pGameNode,tv,index);
 			}
 
@@ -405,10 +422,7 @@ public:
 			}
 
 			Point3 pos=mat.GetTrans();
-			if (_BoneList.at(nodeIndex).isMirrored)
-			{
-				pos = pos * -1.0f;
-			}
+
 			Quat rot(mat);
 			if (rot.w<0)
 			{
@@ -630,7 +644,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 111;
+	return 112;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)

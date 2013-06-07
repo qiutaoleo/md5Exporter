@@ -885,7 +885,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 121;
+	return 122;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -1029,12 +1029,12 @@ void md5meshExporter::DumpBones()
 
 	fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n","origin",-1,
 		0.f,0.f,0.f,0.f,0.f,0.f);
-
+	
+	int index=1;
 	for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 	{
 		IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
 		
-		int index=1;
 		DumpJoint(pGameNode,index,0);
 	}
 	fprintf(_OutFile,"}\r\n\r\n");
