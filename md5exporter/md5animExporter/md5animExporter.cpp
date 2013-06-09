@@ -117,6 +117,7 @@ public:
 
 	BOOL _IncludeBounds;
 	BOOL _HelperObject;
+	BOOL _DoomVersion;
 
 	FILE* _OutFile;
 
@@ -126,7 +127,10 @@ public:
 
 	int SaveMd5Anim( ExpInterface * ei, Interface * gi ) 
 	{
-		fprintf(_OutFile,"MD5Version 4843\r\ncommandline \"by HoneyCat md5animExporter v%d\"\r\n\r\n",Version());
+		if (!_DoomVersion)
+			fprintf(_OutFile,"MD5Version 4843\r\ncommandline \"by HoneyCat md5animExporter v%d\"\r\n\r\n",Version());
+		else
+			fprintf(_OutFile,"MD5Version 10\r\ncommandline \"by HoneyCat md5animExporter v%d\"\r\n\r\n",Version());
 
 		DumpCount(gi);
 
@@ -552,6 +556,7 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 
 			CheckDlgButton(hWnd,IDC_CHECK_INCLUDEBOUNDS,imp->_IncludeBounds);
 			CheckDlgButton(hWnd,IDC_CHECK_HELPER_OBJECT,imp->_HelperObject);
+			CheckDlgButton(hWnd,IDC_DOOM_VERSION,imp->_DoomVersion);
 			return TRUE;
 
 		case WM_COMMAND:
@@ -559,6 +564,7 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			case IDC_OK:
 				imp->_IncludeBounds = IsDlgButtonChecked(hWnd, IDC_CHECK_INCLUDEBOUNDS);
 				imp->_HelperObject = IsDlgButtonChecked(hWnd, IDC_CHECK_HELPER_OBJECT);
+				imp->_DoomVersion = IsDlgButtonChecked(hWnd, IDC_DOOM_VERSION);
 				EndDialog(hWnd, 1);
 				return TRUE;
 			case IDC_CANCEL:
@@ -567,6 +573,8 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 			case IDC_CHECK_INCLUDEBOUNDS:
 				return TRUE;
 			case IDC_CHECK_HELPER_OBJECT:
+				return TRUE;
+			case IDC_DOOM_VERSION:
 				return TRUE;
 			default:
 				break;
@@ -583,7 +591,8 @@ INT_PTR CALLBACK md5animExporterOptionsDlgProc(HWND hWnd,UINT message,WPARAM wPa
 //--- md5animExporter -------------------------------------------------------
 md5animExporter::md5animExporter()
 	:_IncludeBounds(FALSE),
-	_HelperObject(FALSE)
+	_HelperObject(FALSE),
+	_DoomVersion(FALSE)
 {
 
 }
@@ -644,7 +653,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 112;
+	return 113;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)
