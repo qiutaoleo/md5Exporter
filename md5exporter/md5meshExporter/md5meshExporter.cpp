@@ -885,7 +885,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 122;
+	return 123;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -1062,14 +1062,13 @@ void md5meshExporter::CoutMtl( IGameMaterial* pGameMtl )
 		for(int i=0;i<texCount;i++)
 		{
 			IGameTextureMap * tex = pGameMtl->GetIGameTextureMap(i);
-			MCHAR * name = tex->GetBitmapFileName();
 			switch (tex->GetStdMapSlot())
 			{
 			case ID_DI:
-				mtlInfo.Diffuse=name;
+				mtlInfo.Diffuse=tex->GetBitmapFileName();
 				break;
 			case ID_OP:
-				mtlInfo.Opacity=name;
+				mtlInfo.Opacity=tex->GetBitmapFileName();
 				break;
 			}
 		}
