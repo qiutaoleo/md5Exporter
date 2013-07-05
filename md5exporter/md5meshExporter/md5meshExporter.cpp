@@ -210,8 +210,12 @@ public:
 			(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 		{
 			GMatrix mat=pGameNode->GetWorldTM(_TvToDump);
+			
+			mat=ToRightHand(mat);
+
 			Point3 pos=mat.Translation();
 			Quat quat=mat.Rotation();
+			
 			if (quat.w<0)
 			{
 				quat=-quat;
@@ -231,6 +235,30 @@ public:
 
 			DumpJoint(child,CurIndex,index);
 		}
+	}
+
+	GMatrix ToRightHand(const GMatrix& mat) const
+	{
+		Point3 pos=mat.Translation();
+		Quat quat=mat.Rotation();
+		Matrix3 ret=mat.ExtractMatrix3();
+		//检测是否是镜像
+		bool isMirrored=DotProd( CrossProd( ret.GetRow(0).Normalize(), ret.GetRow(1).Normalize() ).Normalize(), ret.GetRow(2).Normalize() ) < 0;
+		//如果是则对镜像进行旋转的修正
+		//修正方式还有待调整
+		if (isMirrored)
+		{
+			float tmp;
+			tmp=quat.x;
+			quat.x=-quat.y;
+			quat.y=tmp;
+			tmp=quat.z;
+			quat.z=quat.w;
+			quat.w=-tmp;
+		}
+		ret.SetRotate(quat);
+		ret.SetTrans(pos);
+		return GMatrix(ret);
 	}
 
 	void DumpObjects() 
@@ -284,7 +312,7 @@ public:
 						IGameModifier * gMod = obj->GetIGameModifier(i);
 						if (gMod->IsSkin())
 						{
-							DumpSubMesh(pGameNode,((IGameSkin*)gMod)->GetInitialPose(),(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
+							DumpSubMesh(pGameNode,gM,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
 							break;;
 						}
 					}
@@ -372,7 +400,7 @@ public:
 							for (hash_map<MCHAR*,vector<FaceEx *> >::iterator it=sameMatMap.begin();
 								it!=sameMatMap.end();++it)
 							{
-								SplitMesh(((IGameSkin*)gMod)->GetInitialPose(),it->second,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
+								SplitMesh(gM,it->second,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
 							}
 							break;;
 						}
@@ -649,11 +677,14 @@ public:
 			weights[u].Value/=totalWeight;
 
 			GMatrix initMat;
-			if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
-			{
+			//这里用GetInitBoneTM需要对应((IGameSkin*)gMod)->GetInitialPose()网格
+			//但是基础动作的计算是用的第0帧的GetWorldTM
+			//所有这里也对应网格就直接用gm了
+			//if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
+			//{
 				initMat=weights[u].Bone->GetWorldTM(_TvToDump);
-			}
-
+			//}
+			initMat=ToRightHand(initMat);
 			initMat=initMat.Inverse();
 			weights[u].Offset=info.Pos*initMat;
 			info.Weights.push_back(weights[u]);
@@ -885,7 +916,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 123;
+	return 124;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -919,7 +950,16 @@ int	md5meshExporter::DoExport(const TCHAR *name,ExpInterface *ei,Interface *i, B
 			pIgame=GetIGameInterface();
 
 			IGameConversionManager * cm = GetConversionManager();
-			cm->SetCoordSystem(IGameConversionManager::IGAME_MAX);
+			cm->SetCoordSystem(IGameConversionManager::IGAME_USER);
+			UserCoord coord={
+					1,	//hand
+					1,	//X
+					4,	//Y
+					2,	//Z
+					1,	//U
+					0,	//V
+			};
+			cm->SetUserCoordSystem(coord);
 			_TargetExport=(options & SCENE_EXPORT_SELECTED) ? true : false;
 			pIgame->InitialiseIGame();
 			pIgame->SetStaticFrame(0);

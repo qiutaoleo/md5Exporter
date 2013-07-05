@@ -214,11 +214,7 @@ public:
 
 	void BasePose( IGameNode * pGameNode,IGameObject * obj , BoneInfo& bone ) 
 	{
-		GMatrix mat=obj->GetIGameObjectTM();
-		Matrix3 objMat=mat.ExtractMatrix3();
-		objMat.NoScale();
-		
-		mat=pGameNode->GetLocalTM(_TvToDump);
+		GMatrix mat=pGameNode->GetLocalTM(_TvToDump);
 
 		bone.Pos=mat.Translation();
 		bone.Rot=mat.Rotation();
@@ -227,6 +223,30 @@ public:
 		Matrix3 baseMat=maxNode->GetNodeTM(_TvToDump);
 		bone.BasePos=baseMat.GetTrans();
 		bone.BaseRot=baseMat;
+	}
+
+	GMatrix ToRightHand(const GMatrix& mat) const
+	{
+		Point3 pos=mat.Translation();
+		Quat quat=mat.Rotation();
+		Matrix3 ret=mat.ExtractMatrix3();
+		//检测是否是镜像
+		bool isMirrored=DotProd( CrossProd( ret.GetRow(0).Normalize(), ret.GetRow(1).Normalize() ).Normalize(), ret.GetRow(2).Normalize() ) < 0;
+		//如果是则对镜像进行旋转的修正
+		//修正方式还有待调整
+		if (isMirrored)
+		{
+			float tmp;
+			tmp=quat.x;
+			quat.x=-quat.y;
+			quat.y=tmp;
+			tmp=quat.z;
+			quat.z=quat.w;
+			quat.w=-tmp;
+		}
+		ret.SetRotate(quat);
+		ret.SetTrans(pos);
+		return GMatrix(ret);
 	}
 
 	bool AlmostEqual2sComplement(float A, float B, int maxUlps=1)
@@ -415,19 +435,18 @@ public:
 			INode* maxNode=pGameNode->GetMaxNode();
 			const ObjectState& objState=maxNode->EvalWorldState(tv);
 			Matrix3 mat=maxNode->GetNodeTM(tv);
-			mat.NoScale();
 			INode* parent=maxNode->GetParentNode();
 			if (parent)
 			{
 				Matrix3 parentMat=parent->GetNodeTM(tv);
-				parentMat.NoScale();
 				parentMat.Invert();
 				mat*=parentMat;
 			}
+			GMatrix childMat=ToRightHand(mat);
 
-			Point3 pos=mat.GetTrans();
+			Point3 pos=childMat.Translation();
+			Quat rot=childMat.Rotation();
 
-			Quat rot(mat);
 			if (rot.w<0)
 			{
 				rot=-rot;
@@ -653,7 +672,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 113;
+	return 114;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)
