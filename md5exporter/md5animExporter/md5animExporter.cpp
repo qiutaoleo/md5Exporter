@@ -80,8 +80,6 @@ struct BoneInfo
 	int StartIndex;
 	Point3 Pos;
 	Quat Rot;
-	Point3 BasePos;
-	Quat BaseRot;
 };
 
 
@@ -214,15 +212,13 @@ public:
 
 	void BasePose( IGameNode * pGameNode,IGameObject * obj , BoneInfo& bone ) 
 	{
+		//GetLocalTM的值实际上与max节点的自身变换是一样的
 		GMatrix mat=pGameNode->GetLocalTM(_TvToDump);
+
+		mat=ToRightHand(mat);
 
 		bone.Pos=mat.Translation();
 		bone.Rot=mat.Rotation();
-
-		INode* maxNode=pGameNode->GetMaxNode();
-		Matrix3 baseMat=maxNode->GetNodeTM(_TvToDump);
-		bone.BasePos=baseMat.GetTrans();
-		bone.BaseRot=baseMat;
 	}
 
 	GMatrix ToRightHand(const GMatrix& mat) const
@@ -249,7 +245,7 @@ public:
 		return GMatrix(ret);
 	}
 
-	bool AlmostEqual2sComplement(float A, float B, int maxUlps=1)
+	bool AlmostEqual2sComplement(float A, float B, int maxUlps=3)
 	{
 		// Make sure maxUlps is non-negative and small enough that the
 		// default NAN won't compare as equal to anything.
@@ -279,33 +275,33 @@ public:
 
 		for (TimeValue tv = start; tv <= end; tv += ticks)
 		{
-			INode* maxNode=pGameNode->GetMaxNode();
-			Matrix3 mat=maxNode->GetNodeTM(tv);
-			Point3 pos=mat.GetTrans();
-			Quat rot(mat);
+			GMatrix mat=pGameNode->GetLocalTM(tv);
+			mat=ToRightHand(mat);
+			Point3 pos=mat.Translation();
+			Quat rot=mat.Rotation();
 
-			if (!AlmostEqual2sComplement(pos.x,bone.BasePos.x))
+			if (!AlmostEqual2sComplement(pos.x,bone.Pos.x))
 			{
 				flag|=eHierarchyFlag_Pos_X;
 			}
-			if (!AlmostEqual2sComplement(pos.y,bone.BasePos.y))
+			if (!AlmostEqual2sComplement(pos.y,bone.Pos.y))
 			{
 				flag|=eHierarchyFlag_Pos_Y;
 			}
-			if (!AlmostEqual2sComplement(pos.z,bone.BasePos.z))
+			if (!AlmostEqual2sComplement(pos.z,bone.Pos.z))
 			{
 				flag|=eHierarchyFlag_Pos_Z;
 			}
 
-			if (!AlmostEqual2sComplement(rot.x,bone.BaseRot.x))
+			if (!AlmostEqual2sComplement(rot.x,bone.Rot.x))
 			{
 				flag|=eHierarchyFlag_Rot_X;
 			}
-			if (!AlmostEqual2sComplement(rot.y,bone.BaseRot.y))
+			if (!AlmostEqual2sComplement(rot.y,bone.Rot.y))
 			{
 				flag|=eHierarchyFlag_Rot_Y;
 			}
-			if (!AlmostEqual2sComplement(rot.z,bone.BaseRot.z))
+			if (!AlmostEqual2sComplement(rot.z,bone.Rot.z))
 			{
 				flag|=eHierarchyFlag_Rot_Z;
 			}
@@ -432,20 +428,10 @@ public:
 			(_HelperObject||obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID))||
 			(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 		{
-			INode* maxNode=pGameNode->GetMaxNode();
-			const ObjectState& objState=maxNode->EvalWorldState(tv);
-			Matrix3 mat=maxNode->GetNodeTM(tv);
-			INode* parent=maxNode->GetParentNode();
-			if (parent)
-			{
-				Matrix3 parentMat=parent->GetNodeTM(tv);
-				parentMat.Invert();
-				mat*=parentMat;
-			}
-			GMatrix childMat=ToRightHand(mat);
-
-			Point3 pos=childMat.Translation();
-			Quat rot=childMat.Rotation();
+			GMatrix mat=pGameNode->GetLocalTM(tv);
+			mat=ToRightHand(mat);
+			Point3 pos=mat.Translation();
+			Quat rot=mat.Rotation();
 
 			if (rot.w<0)
 			{
@@ -672,7 +658,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 114;
+	return 115;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)
