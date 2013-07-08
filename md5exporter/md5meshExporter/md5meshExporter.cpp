@@ -48,7 +48,7 @@ objects {
 }
 
 materials {
-<string:name> <string:diffuseTexture> <string:opacityTexture>
+<string:name> <string:diffuseTexture> <string:opacityTexture> <int:twoSided> <float:transparency>
 ...
 }
 
@@ -96,13 +96,17 @@ struct MaterialInfo
 {
 	MaterialInfo()
 		:Diffuse(NULL),
-		Opacity(NULL)
+		Opacity(NULL),
+		TwoSided(FALSE),
+		Transparency(1.0f)
 	{
 
 	}
 	MCHAR* Name;
 	MCHAR* Diffuse;
 	MCHAR* Opacity;
+	BOOL TwoSided;
+	float Transparency;
 };
 
 struct WeightInfo;
@@ -277,8 +281,9 @@ public:
 		fprintf(_OutFile,"materials {\r\n");
 		for (int i=0;i<_MtlCount;++i)
 		{
-			fprintf(_OutFile,"\t\"%s\" \"%s\" \"%s\"\r\n",_MtlInfoList.at(i).Name,
-				GetFileName(_MtlInfoList.at(i).Diffuse),GetFileName(_MtlInfoList.at(i).Opacity));
+			fprintf(_OutFile,"\t\"%s\" \"%s\" \"%s\" %d %f\r\n",_MtlInfoList.at(i).Name,
+				GetFileName(_MtlInfoList.at(i).Diffuse),GetFileName(_MtlInfoList.at(i).Opacity),
+				_MtlInfoList.at(i).TwoSided,_MtlInfoList.at(i).Transparency);
 		}
 		_MtlInfoList.clear();
 		fprintf(_OutFile,"}\r\n\r\n");
@@ -916,7 +921,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 124;
+	return 125;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -1112,7 +1117,18 @@ void md5meshExporter::CoutMtl( IGameMaterial* pGameMtl )
 				break;
 			}
 		}
-		
+
+		Mtl* m=pGameMtl->GetMaxMaterial();
+		//半透明度
+		mtlInfo.Transparency=m->GetXParency();
+
+		if (m->IsSubClassOf(Class_ID(DMTL_CLASS_ID,0)))
+		{
+			StdMat* std = (StdMat *)m;
+			//是否双面
+			mtlInfo.TwoSided=std->GetTwoSided();
+		}
+
 		_MtlInfoList.push_back(mtlInfo);
 		_MtlCount++;
 	}
