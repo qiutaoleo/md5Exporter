@@ -430,6 +430,19 @@ public:
 		for (int i=0;i<boneCount;++i)
 		{
 			BoneInfo& info=_BoneList.at(i);
+			Point3 pos=info.Pos;
+			if (info.Node)
+			{
+				//某个骨头有缩放的需要乘父节点的缩放
+				IGameNode * parentNode=info.Node->GetNodeParent();
+				if (parentNode)
+				{
+					Point3 scale=parentNode->GetWorldTM(_TvToDump).Scaling();
+					pos.x*=scale.x;
+					pos.y*=scale.y;
+					pos.z*=scale.z;
+				}
+			}
 			Quat rot=info.Rot;
 
 			if (rot.w<0)
@@ -438,7 +451,7 @@ public:
 			}
 
 			fprintf(_OutFile,"\t( %f %f %f ) ( %f %f %f )\r\n",
-				info.Pos.x,info.Pos.y,info.Pos.z,
+				pos.x,pos.y,pos.z,
 				rot.x,rot.y,rot.z);
 		}
 
@@ -479,6 +492,15 @@ public:
 			GMatrix mat=pGameNode->GetLocalTM(tv);
 			mat=ToRightHand(mat);
 			Point3 pos=mat.Translation();
+			//某个骨头有缩放的需要乘父节点的缩放
+			IGameNode * parentNode=pGameNode->GetNodeParent();
+			if (parentNode)
+			{
+				Point3 scale=parentNode->GetWorldTM(tv).Scaling();
+				pos.x*=scale.x;
+				pos.y*=scale.y;
+				pos.z*=scale.z;
+			}
 			Quat rot=mat.Rotation();
 
 			if (rot.w<0)
@@ -695,7 +717,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 116;
+	return 117;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)
