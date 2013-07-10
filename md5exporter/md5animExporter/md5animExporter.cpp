@@ -23,6 +23,7 @@
 #include <iostream>
 #include <hash_map>
 #include <map>
+#include <algorithm>
 using namespace std;
 
 /************************************************************************/
@@ -68,18 +69,28 @@ struct BoneInfo
 		:Name(NULL),
 		SelfIndex(-1),
 		ParentIndex(-1),
-		Flag(0),
-		StartIndex(-1)
+		Node(NULL),
+		Flag(0)
 	{
 
 	}
 	MCHAR* Name;
 	int SelfIndex;
 	int ParentIndex;
+	IGameNode* Node;
 	int Flag;
-	int StartIndex;
 	Point3 Pos;
 	Quat Rot;
+
+	bool operator < (const BoneInfo &b) const
+	{
+		//父节点小的在前面同时保证名字按顺序
+		if (ParentIndex<b.ParentIndex)
+			return true;
+		else if (ParentIndex>b.ParentIndex)
+			return false;
+		return MaxAlphaNumComp(Name,b.Name)<=0;
+	}
 };
 
 
@@ -157,8 +168,8 @@ public:
 		bone.Name="origin";
 		bone.SelfIndex=(int)_BoneList.size();
 		bone.ParentIndex=-1;
+		bone.Node=NULL;
 		bone.Flag=0;
-		bone.StartIndex=0;
 		bone.Pos=Point3::Origin;
 		bone.Rot=Quat();
 
@@ -168,7 +179,7 @@ public:
 		for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 		{
 			IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
-			CountNodes(pGameNode,0);
+			CountNodes(pGameNode,loop,0);
 		}
 
 		fprintf(_OutFile,"numFrames %d\r\n",_FrameCount);
@@ -177,7 +188,7 @@ public:
 		fprintf(_OutFile,"numAnimatedComponents %d\r\n\r\n",_AnimatedCount);
 	}
 
-	void CountNodes( IGameNode * pGameNode ,int ParentIndex=-1) 
+	void CountNodes( IGameNode * pGameNode ,int NodeIndex,int ParentIndex=-1) 
 	{
 		int index=(int)_BoneList.size();
 		IGameObject * obj = pGameNode->GetIGameObject();
@@ -191,6 +202,7 @@ public:
 			bone.Name=pGameNode->GetName();
 			bone.SelfIndex=(int)_BoneList.size();
 			bone.ParentIndex=ParentIndex;
+			bone.Node=pGameNode;
 
 			BasePose(pGameNode,obj,bone);
 
@@ -206,7 +218,7 @@ public:
 		{
 			IGameNode * child = pGameNode->GetNodeChild(i);
 
-			CountNodes(child,index);
+			CountNodes(child,i,index);
 		}
 	}
 
@@ -266,7 +278,6 @@ public:
 
 	void CountAnimated(IGameNode * pGameNode,IGameObject * obj,BoneInfo & bone) 
 	{
-		bone.StartIndex=_AnimatedCount;
 		int flag=0;
 
 		TimeValue start=pIgame->GetSceneStartTime();
@@ -326,11 +337,48 @@ public:
 
 	void DumpHierarchy() 
 	{
+		//为了保证和网格里面的顺序一致先排序
+		sort(_BoneList.begin(),_BoneList.end());
+
+		for (int b=0;b<_BoneCount;++b)
+		{
+			BoneInfo& info=_BoneList.at(b);
+			if (info.ParentIndex>-1)
+			{
+				for (int p=0;p<_BoneList.size();++p)
+				{
+					BoneInfo& parentInfo=_BoneList.at(p);
+					if (parentInfo.SelfIndex==info.ParentIndex)
+					{
+						info.ParentIndex=p;
+						break;
+					}
+				}
+			}
+		}
+
 		fprintf(_OutFile,"hierarchy {\r\n");
+		int startIndex=0;
 		for(int i = 0; i <_BoneCount;i++)
 		{
 			BoneInfo& info=_BoneList.at(i);
-			fprintf(_OutFile,"\t\"%s\" %d %d %d\r\n",info.Name,info.ParentIndex,info.Flag,info.StartIndex);
+			info.SelfIndex=i;
+
+			fprintf(_OutFile,"\t\"%s\" %d %d %d\r\n",info.Name,info.ParentIndex,info.Flag,startIndex);
+
+			if (info.Flag&eHierarchyFlag_Pos_X)
+				startIndex++;
+			if (info.Flag&eHierarchyFlag_Pos_Y)
+				startIndex++;
+			if (info.Flag&eHierarchyFlag_Pos_Z)
+				startIndex++;
+
+			if (info.Flag&eHierarchyFlag_Rot_X)
+				startIndex++;
+			if (info.Flag&eHierarchyFlag_Rot_Y)
+				startIndex++;
+			if (info.Flag&eHierarchyFlag_Rot_Z)
+				startIndex++;
 		}
 		fprintf(_OutFile,"}\r\n\r\n");
 	}
@@ -408,12 +456,12 @@ public:
 			int frameNum=tv/ticks;
 			fprintf(_OutFile,"frame %d {\r\n",frameNum);
 
-			int index=1;
-			for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
+			int boneCount=(int)_BoneList.size();
+			//orgin骨头不处理
+			for (int b=1;b<boneCount;++b)
 			{
-				IGameNode * pGameNode = pIgame->GetTopLevelNode(loop);
-
-				DumpPosRot(pGameNode,tv,index);
+				BoneInfo& info=_BoneList.at(b);
+				DumpPosRot(info.Node,tv,info.Flag);
 			}
 
 			fprintf(_OutFile,"}\r\n\r\n");
@@ -421,7 +469,7 @@ public:
 		
 	}
 
-	void DumpPosRot( IGameNode * pGameNode,TimeValue tv,int& nodeIndex ) 
+	void DumpPosRot( IGameNode * pGameNode,TimeValue tv,int flag) 
 	{
 		IGameObject * obj = pGameNode->GetIGameObject();
 		if ((obj->GetIGameType()==IGameObject::IGAME_BONE&&
@@ -438,39 +486,28 @@ public:
 				rot=-rot;
 			}
 
-			AnimData(nodeIndex, pos, rot);
-
-
-			nodeIndex++;
+			AnimData(flag, pos, rot);
 		}
 
 		pGameNode->ReleaseIGameObject();
-
-		for(int i=0;i<pGameNode->GetChildCount();i++)
-		{
-			IGameNode * child = pGameNode->GetNodeChild(i);
-
-			DumpPosRot(child,tv,nodeIndex);
-		}
 	}
 
-	void AnimData( int& nodeIndex, const Point3 &pos, const Quat &rot ) 
+	void AnimData( int flag, const Point3 &pos, const Quat &rot ) 
 	{
-		BoneInfo& info=_BoneList.at(nodeIndex);
 		float data[6];
 		int size=0;
-		if (info.Flag&eHierarchyFlag_Pos_X)
+		if (flag&eHierarchyFlag_Pos_X)
 			data[size++]=pos.x;
-		if (info.Flag&eHierarchyFlag_Pos_Y)
+		if (flag&eHierarchyFlag_Pos_Y)
 			data[size++]=pos.y;
-		if (info.Flag&eHierarchyFlag_Pos_Z)
+		if (flag&eHierarchyFlag_Pos_Z)
 			data[size++]=pos.z;
 
-		if (info.Flag&eHierarchyFlag_Rot_X)
+		if (flag&eHierarchyFlag_Rot_X)
 			data[size++]=rot.x;
-		if (info.Flag&eHierarchyFlag_Rot_Y)
+		if (flag&eHierarchyFlag_Rot_Y)
 			data[size++]=rot.y;
-		if (info.Flag&eHierarchyFlag_Rot_Z)
+		if (flag&eHierarchyFlag_Rot_Z)
 			data[size++]=rot.z;
 		switch (size)
 		{
@@ -658,7 +695,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 115;
+	return 116;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)

@@ -24,6 +24,7 @@
 #include <hash_map>
 #include <map>
 #include <hash_set>
+#include <algorithm>
 using namespace std;
 
 /************************************************************************/
@@ -76,6 +77,32 @@ weight <int:weightIndex> <int:jointIndex> <float:weightBias> ( <vec3:weightPosit
 /************************************************************************/
 
 #define md5meshExporter_CLASS_ID	Class_ID(0xdd5ae717, 0x35c3d455)
+
+struct BoneInfo 
+{
+	BoneInfo()
+		:
+		SelfIndex(-1),
+		ParentIndex(-1)
+	{
+
+	}
+	MCHAR* Name;
+	int SelfIndex;
+	int ParentIndex;
+	Point3 Pos;
+	Quat Rot;
+
+	bool operator < (const BoneInfo &b) const
+	{
+		//父节点小的在前面同时保证名字按顺序
+		if (ParentIndex<b.ParentIndex)
+			return true;
+		else if (ParentIndex>b.ParentIndex)
+			return false;
+		return MaxAlphaNumComp(Name,b.Name)<=0;
+	}
+};
 
 struct ObjectInfo 
 {
@@ -192,7 +219,8 @@ public:
 	int _MeshCount;
 	int _ObjCount;
 	int _MtlCount;
-	
+
+	vector<BoneInfo> _BoneList;
 	hash_map<MCHAR*,int> _BoneIndexMap;
 	vector<ObjectInfo> _ObjInfoList;
 	vector<MaterialInfo> _MtlInfoList;
@@ -224,11 +252,17 @@ public:
 			{
 				quat=-quat;
 			}
-			MCHAR* name=pGameNode->GetName();
-			fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n",name,ParentIndex,
-				pos.x,pos.y,pos.z,quat.x,quat.y,quat.z);
+
+			BoneInfo bone;
+			bone.Name=pGameNode->GetName();
+			bone.SelfIndex=(int)_BoneList.size();
+			bone.ParentIndex=ParentIndex;
+			bone.Pos=pos;
+			bone.Rot=quat;
+
+			_BoneList.push_back(bone);
+
 			++CurIndex;
-			_BoneIndexMap[name]=index;
 		}
 		
 		pGameNode->ReleaseIGameObject();
@@ -921,7 +955,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 125;
+	return 126;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -1071,10 +1105,16 @@ void md5meshExporter::CountNodes( IGameNode * pGameNode,BOOL isBoneChild )
 void md5meshExporter::DumpBones() 
 {
 	fprintf(_OutFile,"joints {\r\n");
-
-	fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n","origin",-1,
-		0.f,0.f,0.f,0.f,0.f,0.f);
 	
+	BoneInfo bone;
+	bone.Name="origin";
+	bone.SelfIndex=(int)_BoneList.size();
+	bone.ParentIndex=-1;
+	bone.Pos=Point3::Origin;
+	bone.Rot=Quat();
+
+	_BoneList.push_back(bone);
+
 	int index=1;
 	for(int loop = 0; loop <pIgame->GetTopLevelNodeCount();loop++)
 	{
@@ -1082,6 +1122,37 @@ void md5meshExporter::DumpBones()
 		
 		DumpJoint(pGameNode,index,0);
 	}
+
+	//为了保证和动画里面的顺序一致先排序
+	sort(_BoneList.begin(),_BoneList.end());
+
+	int boneSize=(int)_BoneList.size();
+	for (int b=0;b<boneSize;++b)
+	{
+		BoneInfo& info=_BoneList.at(b);
+		if (info.ParentIndex>-1)
+		{
+			for (int p=0;p<_BoneList.size();++p)
+			{
+				BoneInfo& parentInfo=_BoneList.at(p);
+				if (parentInfo.SelfIndex==info.ParentIndex)
+				{
+					info.ParentIndex=p;
+					break;
+				}
+			}
+		}
+	}
+
+	for (int b=0;b<_BoneList.size();++b)
+	{
+		BoneInfo& info=_BoneList.at(b);
+		_BoneIndexMap[info.Name]=b;
+		fprintf(_OutFile,"\t\"%s\" %d ( %f %f %f ) ( %f %f %f )\r\n",info.Name,info.ParentIndex,
+			info.Pos.x,info.Pos.y,info.Pos.z,
+			info.Rot.x,info.Rot.y,info.Rot.z);
+	}
+
 	fprintf(_OutFile,"}\r\n\r\n");
 }
 
