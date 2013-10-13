@@ -96,11 +96,7 @@ struct BoneInfo
 	bool operator < (const BoneInfo &b) const
 	{
 		//父节点小的在前面同时保证名字按顺序
-		if (ParentIndex<b.ParentIndex)
-			return true;
-		else if (ParentIndex>b.ParentIndex)
-			return false;
-		return MaxAlphaNumComp(Name,b.Name)<=0;
+		return MaxAlphaNumComp(Name,b.Name)<0;
 	}
 };
 
@@ -174,6 +170,39 @@ struct WeightInfo
 	IGameNode* Bone;
 	Point3 Offset;
 };
+
+//骨头排序按层级 以广度优先 按名字顺序
+void BoneSort(vector<BoneInfo>& boneList)
+{
+	vector<BoneInfo> tmpList(boneList.begin(),boneList.end());
+	boneList.clear();
+	vector<BoneInfo>::iterator it=tmpList.begin();
+
+	boneList.push_back(*it);
+	tmpList.erase(it);
+	
+	int parentIndex=0;
+	while (!tmpList.empty())
+	{
+		BoneInfo& parent=boneList.at(parentIndex);
+		vector<BoneInfo>::iterator childIt=tmpList.begin();
+		vector<BoneInfo> children;
+		while (childIt!=tmpList.end())
+		{
+			if (childIt->ParentIndex==parent.SelfIndex)
+			{
+				children.push_back(*childIt);
+				tmpList.erase(childIt);
+				childIt=tmpList.begin();
+			}
+			else
+				++childIt;
+		}
+		sort(children.begin(),children.end());
+		boneList.insert(boneList.end(),children.begin(),children.end());
+		++parentIndex;
+	}
+}
 
 
 
@@ -955,7 +984,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 126;
+	return 127;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
@@ -1124,7 +1153,7 @@ void md5meshExporter::DumpBones()
 	}
 
 	//为了保证和动画里面的顺序一致先排序
-	sort(_BoneList.begin(),_BoneList.end());
+	BoneSort(_BoneList);
 
 	int boneSize=(int)_BoneList.size();
 	for (int b=0;b<boneSize;++b)
