@@ -372,18 +372,25 @@ public:
 			IGameMesh * gM = (IGameMesh*)obj;
 			if(gM->InitializeData())
 			{
+				bool hasSkin=false;
 				int numMod = obj->GetNumModifiers();
 				if(numMod > 0)
 				{
-					for(int i=0;i<numMod;i++)
+					int i=0;
+					for(i=0;i<numMod;i++)
 					{
 						IGameModifier * gMod = obj->GetIGameModifier(i);
 						if (gMod->IsSkin())
 						{
-							DumpSubMesh(pGameNode,gM,(IGameSkin*)gMod);//((IGameSkin*)gMod)->GetInitialPose()gM//
-							break;;
+							hasSkin=true;
+							DumpSubMesh(pGameNode,gM,(IGameSkin*)gMod);
+							break;
 						}
 					}
+				}
+				if (!hasSkin)
+				{
+					DumpSubMesh(pGameNode,gM,NULL);
 				}
 			}
 			else
@@ -455,6 +462,7 @@ public:
 				}
 			}
 
+			bool hasSkin=false;
 			if (_LimitBoneNumPerMesh)
 			{
 				int numMod = obj->GetNumModifiers();
@@ -465,6 +473,7 @@ public:
 						IGameModifier * gMod = obj->GetIGameModifier(i);
 						if (gMod->IsSkin())
 						{
+							hasSkin=true;
 							for (hash_map<MCHAR*,vector<FaceEx *> >::iterator it=sameMatMap.begin();
 								it!=sameMatMap.end();++it)
 							{
@@ -475,7 +484,7 @@ public:
 					}
 				}
 			}
-			else
+			if (!_LimitBoneNumPerMesh||!hasSkin)
 			{
 				if (tmpMatCount<_MtlCount)
 					tmpMatCount=_MtlCount-tmpMatCount;
@@ -586,7 +595,7 @@ public:
 					if (-1==info.WeightIndex&&-1==info.WeightCount)
 					{
 						info.WeightIndex=weightIndex;
-						info.WeightCount=gSkin->GetNumberOfBones(info.VertIndex);
+						info.WeightCount=gSkin?gSkin->GetNumberOfBones(info.VertIndex):1;
 						
 						weightIndex+=info.WeightCount>VERT_MAX_BONES?VERT_MAX_BONES:info.WeightCount;
 
@@ -599,7 +608,8 @@ public:
 
 					for (int i=0;i<(int)info.Weights.size();++i)
 					{
-						sameBoneMap.insert(info.Weights.at(i).Bone->GetName());
+						IGameNode* bone=info.Weights.at(i).Bone;
+						sameBoneMap.insert(bone?bone->GetName():_BoneList.at(0).Name);
 					}
 				}
 			}
@@ -674,7 +684,7 @@ public:
 				WeightInfo& weight=curinfo.Weights.at(u);
 
 				fprintf(_OutFile,"\tweight %d %d %f ( %f %f %f )\r\n",curinfo.WeightIndex+u,
-					_BoneIndexMap[weight.Bone->GetName()],
+					_BoneIndexMap[weight.Bone?weight.Bone->GetName():_BoneList.at(0).Name],
 					weight.Value,
 					weight.Offset.x,
 					weight.Offset.y,
@@ -712,12 +722,12 @@ public:
 
 		for (int b=0;b<weightCount;++b)
 		{
-			float curWeight=gSkin->GetWeight(info.VertIndex,b);
+			float curWeight=gSkin?gSkin->GetWeight(info.VertIndex,b):1;
 
 			if (b<VERT_MAX_BONES)
 			{
 				weights[b].Value=curWeight;
-				weights[b].Bone=gSkin->GetIGameBone(info.VertIndex,b);
+				weights[b].Bone=gSkin?gSkin->GetIGameBone(info.VertIndex,b):NULL;
 			}
 			else 
 			{
@@ -726,7 +736,7 @@ public:
 					if (weights[u].Value<curWeight)
 					{
 						weights[u].Value=curWeight;
-						weights[u].Bone=gSkin->GetIGameBone(info.VertIndex,b);
+						weights[u].Bone=gSkin?gSkin->GetIGameBone(info.VertIndex,b):NULL;
 						break;
 					}
 				}
@@ -750,7 +760,10 @@ public:
 			//所有这里也对应网格就直接用gm了
 			//if (!gSkin->GetInitBoneTM(weights[u].Bone,initMat))
 			//{
-				initMat=weights[u].Bone->GetWorldTM(_TvToDump);
+				if (weights[u].Bone)
+					initMat=weights[u].Bone->GetWorldTM(_TvToDump);
+				else
+					initMat.SetIdentity();
 			//}
 			initMat=ToRightHand(initMat);
 			initMat=initMat.Inverse();
@@ -984,7 +997,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 127;
+	return 128;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
