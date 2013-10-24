@@ -444,8 +444,6 @@ public:
 
 			hash_map<MCHAR*,vector<FaceEx *> > sameMatMap;
 
-			int tmpMatCount=_MtlCount;
-
 			for (int m=0;m<matCount;++m)
 			{
 				Tab<FaceEx *> faces=gM->GetFacesFromMatID(matIDs[m]);
@@ -486,11 +484,7 @@ public:
 			}
 			if (!_LimitBoneNumPerMesh||!hasSkin)
 			{
-				if (tmpMatCount<_MtlCount)
-					tmpMatCount=_MtlCount-tmpMatCount;
-				else
-					tmpMatCount=1;
-				_MeshCount+=tmpMatCount;
+				_MeshCount+=matCount;
 			}
 
 			_ObjInfoList.at(_ObjCount-1).MeshCount=_MeshCount-_ObjInfoList.at(_ObjCount-1).StartMesh;
@@ -997,7 +991,7 @@ const TCHAR *md5meshExporter::OtherMessage2()
 unsigned int md5meshExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 128;
+	return 129;
 }
 
 void md5meshExporter::ShowAbout(HWND hWnd)
