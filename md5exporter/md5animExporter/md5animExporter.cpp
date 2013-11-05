@@ -253,8 +253,15 @@ public:
 	void BasePose( IGameNode * pGameNode,IGameObject * obj , BoneInfo& bone ) 
 	{
 		//GetLocalTM的值实际上与max节点的自身变换是一样的
-		GMatrix mat=pGameNode->GetLocalTM(_TvToDump);
-
+		GMatrix mat;
+		IGameNode * parentNode=pGameNode->GetNodeParent();
+		if (parentNode)
+		{
+			mat=parentNode->GetWorldTM(_TvToDump);
+			mat=ToRightHand(mat);
+			mat=mat.Inverse();
+		}
+		mat=pGameNode->GetWorldTM(_TvToDump)*mat;
 		mat=ToRightHand(mat);
 
 		bone.Pos=mat.Translation();
@@ -314,7 +321,15 @@ public:
 
 		for (TimeValue tv = start; tv <= end; tv += ticks)
 		{
-			GMatrix mat=pGameNode->GetLocalTM(tv);
+			GMatrix mat;
+			IGameNode * parentNode=pGameNode->GetNodeParent();
+			if (parentNode)
+			{
+				mat=parentNode->GetWorldTM(tv);
+				mat=ToRightHand(mat);
+				mat=mat.Inverse();
+			}
+			mat=pGameNode->GetWorldTM(tv)*mat;
 			mat=ToRightHand(mat);
 			Point3 pos=mat.Translation();
 			Quat rot=mat.Rotation();
@@ -504,7 +519,15 @@ public:
 			(_HelperObject||obj->GetMaxObject()->SuperClassID()!=HELPER_CLASS_ID))||
 			(_HelperObject&&obj->GetIGameType()==IGameObject::IGAME_HELPER))
 		{
-			GMatrix mat=pGameNode->GetLocalTM(tv);
+			GMatrix mat;
+			IGameNode * parentNode=pGameNode->GetNodeParent();
+			if (parentNode)
+			{
+				mat=parentNode->GetWorldTM(tv);
+				mat=ToRightHand(mat);
+				mat=mat.Inverse();
+			}
+			mat=pGameNode->GetWorldTM(tv)*mat;
 			mat=ToRightHand(mat);
 			Point3 pos=mat.Translation();
 			Quat rot=mat.Rotation();
@@ -723,7 +746,7 @@ const TCHAR *md5animExporter::OtherMessage2()
 unsigned int md5animExporter::Version()
 {				
 	//#pragma message(TODO("Return Version number * 100 (i.e. v3.01 = 301)"))
-	return 118;
+	return 119;
 }
 
 void md5animExporter::ShowAbout(HWND hWnd)
